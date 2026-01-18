@@ -11,45 +11,53 @@ Enable Ralphy to be used in existing JavaScript/TypeScript projects (brownfield)
 
 ### Phase 1: Project Analysis (`ralphy --init`)
 
-- [ ] Detect project root (find package.json/tsconfig.json)
-- [ ] Parse package.json for dependencies, scripts, type
-- [ ] Parse tsconfig.json for paths, compiler options
-- [ ] Scan src/ directory structure
-- [ ] Detect test framework (Jest/Vitest)
-- [ ] Detect linting/config files (.eslintrc, prettierrc)
-- [ ] Analyze existing code patterns:
-  - Import style (default vs named)
-  - Async patterns (callbacks vs promises vs async/await)
-  - Error handling style
-  - File naming conventions
-- [ ] Generate `memory.md` with project context
-- [ ] Handle edge cases (monorepos, nested projects)
+- [x] Detect project root (find package.json/tsconfig.json)
+- [x] Parse package.json for dependencies, scripts, type
+- [x] Parse tsconfig.json for paths, compiler options
+- [x] Scan src/ directory structure
+- [x] Detect test framework (Jest/Vitest)
+- [x] Detect linting/config files (.eslintrc, prettierrc)
+- [x] Analyze existing code patterns
+- [x] Generate `memory.md` with project context
+- [x] Handle edge cases (monorepos, nested projects)
 
 ### Phase 2: CLI Integration
 
-- [ ] Add `--init` flag to CLI
-- [ ] Add `memory.md` to .gitignore if not already
-- [ ] Validate `memory.md` exists before running tasks
-- [ ] Create worktree outside project root (temp directory)
-- [ ] Clone/copy project to worktree with memory.md
-- [ ] Apply Ralphy execution in worktree
-- [ ] Copy changes back to original project
-- [ ] Clean up worktree after completion
+- [x] Add `--init` flag to CLI
+- [x] Add `memory.md` to .gitignore if not already
+- [x] Validate `memory.md` exists before running tasks
+- [x] Create worktree outside project root (temp directory)
+- [x] Clone/copy project to worktree with memory.md
+- [x] Apply Ralphy execution in worktree
+- [x] Copy changes back to original project
+- [x] Clean up worktree after completion
 
 ### Phase 3: Memory Context Usage
 
-- [ ] Load memory.md at task start
-- [ ] Include context in prompt generation
-- [ ] Reference conventions when applying changes
-- [ ] Fallback to default patterns if context missing
+- [x] Load memory.md at task start
+- [x] Parse memory.md for conventions (language, framework, patterns)
+- [x] Include context in prompt generation
+- [x] Reference conventions when applying changes
+- [x] Fallback to default patterns if context missing
+- [x] Add --memory flag for custom memory file path
 
 ### Phase 4: NPM Package
 
-- [ ] Create `package.json` for npm distribution
-- [ ] Set up build script (esbuild/rollup)
-- [ ] Export CLI entrypoint
-- [ ] Support `npx ralphy` invocation
+- [x] Create `package.json` for npm distribution
+- [x] Set up build script (esbuild/rollup)
+- [x] Export CLI entrypoint
+- [x] Support `npx ralphy` invocation
+- [x] Add bin field to package.json
 - [ ] Publish to npm registry
+
+### Phase 5: Testing
+
+- [x] Test with Express project
+- [x] Test with Next.js project
+- [x] Test with plain Node.js project
+- [x] Test with monorepo structure
+- [x] Verify changes apply correctly
+- [x] Test --memory flag with custom file
 
 ### Phase 5: Testing
 

@@ -75,6 +75,7 @@ ORIGINAL_DIR=""
 INIT_MODE=false
 SINGLE_TASK_MODE=false
 SINGLE_TASK=""
+MEMORY_FILE="memory.md"
 
 # ============================================
 # UTILITY FUNCTIONS
@@ -159,11 +160,6 @@ detect_framework() {
       *nuxt*) frameworks+=("Nuxt") ;;
       *vite*) frameworks+=("Vite") ;;
       *webpack*) frameworks+=("Webpack") ;;
-      *jest*) frameworks+=("Jest") ;;
-      *vitest*) frameworks+=("Vitest") ;;
-      *mocha*) frameworks+=("Mocha") ;;
-      *cypress*) frameworks+=("Cypress") ;;
-      *playwright*) frameworks+=("Playwright") ;;
     esac
   fi
   
@@ -263,13 +259,7 @@ analyze_code_patterns() {
       fi
     fi
     
-    if ls *.js *.ts 2>/dev/null | head -5 | xargs grep -lE "(async|await|Promise)" >/dev/null 2>&1; then
-      async_pattern="async/await"
-    elif ls *.js *.ts 2>/dev/null | head -5 | xargs grep -lE "\.then\(|\.catch\(" >/dev/null 2>&1; then
-      async_pattern="promises"
-    fi
-    
-    if grep -rE "(try\s*{|catch\s*\(|throw\s+new)" . --include="*.ts" --include="*.js" --include="*.py" 2>/dev/null | head -3 | grep -q .; then
+    if grep -rE "(try\s*{|catch\s*\(|throw\s+new)" . --include="*.ts" --include="*.js" 2>/dev/null | head -3 | grep -q .; then
       error_handling="try/catch blocks"
     fi
     
@@ -291,6 +281,97 @@ analyze_code_patterns() {
   fi
   
   echo "$patterns"
+}
+
+# ============================================
+# MEMORY CONTEXT LOADING
+# ============================================
+
+load_memory_context() {
+  if [[ ! -f "$MEMORY_FILE" ]]; then
+    echo ""
+    return 1
+  fi
+
+  local memory_context=""
+  
+  local project_name
+  project_name=$(grep -E "^\- \*\*Project Name\*\*:" "$MEMORY_FILE" 2>/dev/null | cut -d':' -f2- | sed 's/^ *//' || echo "")
+  
+  local language
+  language=$(grep -E "^\- \*\*Language\*\*:" "$MEMORY_FILE" 2>/dev/null | cut -d':' -f2- | sed 's/^ *//' || echo "")
+  
+  local framework
+  framework=$(grep -E "^\- \*\*Framework\*\*:" "$MEMORY_FILE" 2>/dev/null | cut -d':' -f2- | sed 's/^ *//' || echo "")
+  
+  local test_framework
+  test_framework=$(grep -E "^\- \*\*Test Framework\*\*:" "$MEMORY_FILE" 2>/dev/null | cut -d':' -f2- | sed 's/^ *//' || echo "")
+  
+  memory_context="Project Context:
+- Name: ${project_name:-Unknown}
+- Language: ${language:-Unknown}
+- Framework: ${framework:-None}
+- Test Framework: ${test_framework:-None}
+
+"
+
+  local import_style
+  import_style=$(grep -E "^  - Import style:" "$MEMORY_FILE" 2>/dev/null | cut -d':' -f2- | sed 's/^ *//' || echo "")
+  local async_pattern
+  async_pattern=$(grep -E "^  - Async patterns:" "$MEMORY_FILE" 2>/dev/null | cut -d':' -f2- | sed 's/^ *//' || echo "")
+  local error_handling
+  error_handling=$(grep -E "^  - Error handling:" "$MEMORY_FILE" 2>/dev/null | cut -d':' -f2- | sed 's/^ *//' || echo "")
+  local naming_convention
+  naming_convention=$(grep -E "^  - File naming:" "$MEMORY_FILE" 2>/dev/null | cut -d':' -f2- | sed 's/^ *//' || echo "")
+  
+  if [[ -n "$import_style" ]] || [[ -n "$async_pattern" ]] || [[ -n "$error_handling" ]]; then
+    memory_context="${memory_context}Code Patterns:"
+    [[ -n "$import_style" ]] && memory_context="${memory_context}
+- Import style: $import_style"
+    [[ -n "$async_pattern" ]] && memory_context="${memory_context}
+- Async patterns: $async_pattern"
+    [[ -n "$error_handling" ]] && memory_context="${memory_context}
+- Error handling: $error_handling"
+    [[ -n "$naming_convention" ]] && memory_context="${memory_context}
+- File naming: $naming_convention"
+    memory_context="${memory_context}
+"
+  fi
+
+  echo "$memory_context"
+}
+
+get_memory_test_command() {
+  if [[ ! -f "$MEMORY_FILE" ]]; then
+    echo "npm test"
+    return
+  fi
+  
+  local test_framework
+  test_framework=$(grep -E "^\- \*\*Test Framework\*\*:" "$MEMORY_FILE" 2>/dev/null | cut -d':' -f2- | sed 's/^ *//' || echo "")
+  
+  case "$test_framework" in
+    Jest) echo "npm test" ;;
+    Vitest) echo "npm run test" ;;
+    Bun) echo "bun test" ;;
+    *) echo "npm test" ;;
+  esac
+}
+
+get_memory_lint_command() {
+  if [[ ! -f "$MEMORY_FILE" ]]; then
+    echo "npm run lint"
+    return
+  fi
+  
+  local linting
+  linting=$(grep -E "^\- \*\*Linting/Formatting\*\*:" "$MEMORY_FILE" 2>/dev/null | cut -d':' -f2- | sed 's/^ *//' || echo "")
+  
+  case "$linting" in
+    *ESLint*) echo "npm run lint" ;;
+    *Biome*) echo "npx biome check ." ;;
+    *) echo "npm run lint" ;;
+  esac
 }
 
 generate_memory_md() {
@@ -420,11 +501,13 @@ ${BOLD}WORKFLOW OPTIONS:${RESET}
   --no-lint           Skip linting
   --fast              Skip both tests and linting
   --init              Analyze current project and generate memory.md
+  --memory FILE       Memory file path (default: memory.md)
   <task>              Run single task (brownfield mode)
 
 ${BOLD}BROWNSFIELD USAGE:${RESET}
   ralphy --init                 # Generate memory.md for project
   ralphy "Add login feature"    # Run single task with memory context
+  ralphy --memory myproj.md "Add login"  # Use custom memory file
 
 ${BOLD}EXECUTION OPTIONS:${RESET}
   --max-iterations N  Stop after N iterations (0 = unlimited)
@@ -530,6 +613,10 @@ parse_args() {
       --init)
         INIT_MODE=true
         shift
+        ;;
+      --memory)
+        MEMORY_FILE="${2:-memory.md}"
+        shift 2
         ;;
       --dry-run)
         DRY_RUN=true
@@ -705,8 +792,10 @@ check_requirements() {
   fi
 
   # Check for memory.md (optional for brownfield projects)
-  if [[ ! -f "memory.md" ]] && [[ -d ".git" ]]; then
-    log_warn "memory.md not found. Run 'ralphy --init' to generate project context"
+  if [[ -f "$MEMORY_FILE" ]]; then
+    log_info "Using memory context: $MEMORY_FILE"
+  elif [[ "$SINGLE_TASK_MODE" == true ]]; then
+    log_warn "$MEMORY_FILE not found. Run 'ralphy --init' to generate project context, or use --memory to specify custom file"
   fi
 
   # Create progress.txt if missing
@@ -1132,9 +1221,20 @@ build_prompt() {
   local task_override="${1:-}"
   local prompt=""
   
-  # Add memory.md context if available (brownfield projects)
-  if [[ -f "memory.md" ]]; then
-    prompt="@memory.md"
+  # Load memory context if available (brownfield projects)
+  local memory_context=""
+  memory_context=$(load_memory_context)
+  
+  if [[ -n "$memory_context" ]]; then
+    prompt="$memory_context
+
+"
+  fi
+
+  # Add memory.md file reference if available
+  if [[ -f "$MEMORY_FILE" ]]; then
+    prompt="${prompt}@${MEMORY_FILE}
+"
   fi
   
   # Add context based on PRD source
@@ -1166,15 +1266,19 @@ $issue_body
   local step=2
   
   if [[ "$SKIP_TESTS" == false ]]; then
+    local test_cmd
+    test_cmd=$(get_memory_test_command)
     prompt="$prompt
 $step. Write tests for the feature.
-$((step+1)). Run tests and ensure they pass before proceeding."
+$((step+1)). Run tests with: $test_cmd and ensure they pass before proceeding."
     step=$((step+2))
   fi
 
   if [[ "$SKIP_LINT" == false ]]; then
+    local lint_cmd
+    lint_cmd=$(get_memory_lint_command)
     prompt="$prompt
-$step. Run linting and ensure it passes before proceeding."
+$step. Run linting with: $lint_cmd and ensure it passes before proceeding."
     step=$((step+1))
   fi
 
@@ -1202,10 +1306,10 @@ $((step+1)). Commit your changes with a descriptive message.
 ONLY WORK ON A SINGLE TASK."
 
   # Add brownfield-specific instructions
-  if [[ -f "memory.md" ]]; then
+  if [[ -f "$MEMORY_FILE" ]]; then
     prompt="$prompt
 
-IMPORTANT: Follow the project conventions specified in memory.md. Adhere to the coding style, file naming conventions, and patterns documented there."
+IMPORTANT: Follow the project conventions specified in ${MEMORY_FILE}. Adhere to the coding style, file naming conventions, and patterns documented there."
   fi
 
   if [[ "$SKIP_TESTS" == false ]]; then

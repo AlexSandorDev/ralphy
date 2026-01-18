@@ -8,7 +8,9 @@
   },
   "scripts": {
     "start": "./ralphy.sh",
-    "init": "./ralphy.sh --init"
+    "init": "./ralphy.sh --init",
+    "test": "echo 'No tests specified'",
+    "lint": "echo 'No lint specified'"
   },
   "keywords": [
     "ai",
@@ -16,7 +18,8 @@
     "autonomous",
     "claude",
     "cursor",
-    "opencode"
+    "opencode",
+    "qwen"
   ],
   "author": "Akshay Joshi",
   "license": "MIT",
@@ -26,5 +29,9 @@
   },
   "engines": {
     "node": ">=18.0.0"
-  }
+  },
+  "files": [
+    "ralphy.sh",
+    "README.md"
+  ]
 }
