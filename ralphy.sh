@@ -390,7 +390,7 @@ check_requirements() {
       if ! command -v claude &>/dev/null; then
         log_error "Claude Code CLI not found."
         log_info "Install from: https://github.com/anthropics/claude-code"
-        log_info "Or use another engine: --cursor, --opencode, --codex, --qwen"
+        log_info "Or use another engine: --cursor, --opencode, --codex, --qwen, --droid"
         exit 1
       fi
       ;;
