@@ -64,14 +64,15 @@ CODEX_LAST_MESSAGE_FILE=""
 current_step="Thinking"
 total_input_tokens=0
 total_output_tokens=0
-total_actual_cost="0"  # OpenCode provides actual cost
-total_duration_ms=0    # Cursor provides duration
+total_actual_cost="0"
+total_duration_ms=0
 iteration=0
 retry_count=0
 declare -a parallel_pids=()
 declare -a task_branches=()
-WORKTREE_BASE=""  # Base directory for parallel agent worktrees
-ORIGINAL_DIR=""   # Original working directory (for worktree operations)
+WORKTREE_BASE=""
+ORIGINAL_DIR=""
+INIT_MODE=false
 
 # ============================================
 # UTILITY FUNCTIONS
@@ -96,6 +97,296 @@ log_error() {
 log_debug() {
   if [[ "$VERBOSE" == true ]]; then
     echo "${DIM}[DEBUG] $*${RESET}"
+  fi
+}
+
+# ============================================
+# PROJECT ANALYSIS (--init)
+# ============================================
+
+find_project_root() {
+  local dir="$PWD"
+  while [[ "$dir" != "/" ]]; do
+    if [[ -f "$dir/package.json" ]] || [[ -f "$dir/tsconfig.json" ]] || [[ -f "$dir/pyproject.toml" ]]; then
+      echo "$dir"
+      return 0
+    fi
+    dir=$(dirname "$dir")
+  done
+  echo "$PWD"
+}
+
+detect_language() {
+  if [[ -f "package.json" ]]; then
+    local type
+    type=$(jq -r '.type // "commonjs"' package.json 2>/dev/null || echo "commonjs")
+    if [[ -f "tsconfig.json" ]]; then
+      echo "TypeScript"
+    else
+      echo "JavaScript ($type modules)"
+    fi
+  elif [[ -f "pyproject.toml" ]] || [[ -f "setup.py" ]]; then
+    echo "Python"
+  elif [[ -f "go.mod" ]]; then
+    echo "Go"
+  else
+    echo "Unknown"
+  fi
+}
+
+detect_framework() {
+  local frameworks=()
+  
+  if [[ -f "package.json" ]]; then
+    local deps
+    deps=$(jq -r '.dependencies // {} | keys[]' package.json 2>/dev/null || true)
+    
+    case "$deps" in
+      *express*) frameworks+=("Express") ;;
+      *koa*) frameworks+=("Koa") ;;
+      *fastify*) frameworks+=("Fastify") ;;
+      *nest*) frameworks+=("NestJS") ;;
+      *hapi*) frameworks+=("Hapi") ;;
+    esac
+    
+    local devDeps
+    devDeps=$(jq -r '.devDependencies // {} | keys[]' package.json 2>/dev/null || true)
+    
+    case "$devDeps" in
+      *next*) frameworks+=("Next.js") ;;
+      *nuxt*) frameworks+=("Nuxt") ;;
+      *vite*) frameworks+=("Vite") ;;
+      *webpack*) frameworks+=("Webpack") ;;
+      *jest*) frameworks+=("Jest") ;;
+      *vitest*) frameworks+=("Vitest") ;;
+      *mocha*) frameworks+=("Mocha") ;;
+      *cypress*) frameworks+=("Cypress") ;;
+      *playwright*) frameworks+=("Playwright") ;;
+    esac
+  fi
+  
+  if [[ ${#frameworks[@]} -eq 0 ]]; then
+    echo "None detected"
+  else
+    echo "$(IFS=,; echo "${frameworks[*]}")"
+  fi
+}
+
+detect_test_framework() {
+  if [[ -f "package.json" ]]; then
+    local devDeps
+    devDeps=$(jq -r '.devDependencies // {} | keys[]' package.json 2>/dev/null || true)
+    
+    case "$devDeps" in
+      *jest*) echo "Jest" ;;
+      *vitest*) echo "Vitest" ;;
+      *mocha*) echo "Mocha" ;;
+      *bun*) echo "Bun" ;;
+      *playwright*) echo "Playwright" ;;
+      *cypress*) echo "Cypress" ;;
+      *) echo "None" ;;
+    esac
+  else
+    echo "None"
+  fi
+}
+
+detect_linting_config() {
+  local configs=()
+  
+  [[ -f ".eslintrc" ]] || [[ -f ".eslintrc.json" ]] || [[ -f ".eslintrc.js" ]] || [[ -f ".eslintrc.cjs" ]] && configs+=("ESLint")
+  [[ -f "prettierrc" ]] || [[ -f "prettierrc.json" ]] || [[ -f ".prettierrc" ]] && configs+=("Prettier")
+  [[ -f ".prettierignore" ]] && configs+=("Prettier ignore")
+  [[ -f ".editorconfig" ]] && configs+=("EditorConfig")
+  [[ -f "biome.json" ]] && configs+=("Biome")
+  [[ -f "ruff.toml" ]] || [[ -f "pyproject.toml" ]] && configs+=("Ruff")
+  
+  if [[ ${#configs[@]} -eq 0 ]]; then
+    echo "None detected"
+  else
+    echo "$(IFS=,; echo "${configs[*]}")"
+  fi
+}
+
+scan_directory_structure() {
+  local output=""
+  local max_depth=3
+  local current_depth=0
+  
+  scan_dir() {
+    local dir="$1"
+    local indent="$2"
+    local max_depth=$3
+    local current_depth=$4
+    
+    [[ $current_depth -ge $max_depth ]] && return
+    
+    for item in "$dir"/*; do
+      [[ -e "$item" ]] || continue
+      local name
+      name=$(basename "$item")
+      
+      if [[ -d "$item" ]]; then
+        output+="${indent}📁 $name/\n"
+        scan_dir "$item" "  $indent" $max_depth $((current_depth + 1))
+      else
+        local ext="${name##*.}"
+        case "$ext" in
+          ts|tsx|js|jsx|mjs|cjs) output+="${indent}📄 $name\n" ;;
+          json|md|txt|yml|yaml) output+="${indent}📄 $name\n" ;;
+          *) output+="${indent}📄 $name\n" ;;
+        esac
+      fi
+    done
+  }
+  
+  scan_dir "." "" $max_depth 0
+  echo -e "$output"
+}
+
+analyze_code_patterns() {
+  local patterns=""
+  
+  if [[ -f "package.json" ]]; then
+    local import_style="unknown"
+    local async_pattern="unknown"
+    local error_handling="unknown"
+    local naming_convention="unknown"
+    
+    if ls *.js *.ts 2>/dev/null | head -5 | xargs grep -l "import.*from" >/dev/null 2>&1; then
+      if grep -r "import.*from" *.js *.ts 2>/dev/null | head -3 | grep -q "import [a-zA-Z]* from"; then
+        import_style="named imports"
+      else
+        import_style="default imports"
+      fi
+    fi
+    
+    if ls *.js *.ts 2>/dev/null | head -5 | xargs grep -lE "(async|await|Promise)" >/dev/null 2>&1; then
+      async_pattern="async/await"
+    elif ls *.js *.ts 2>/dev/null | head -5 | xargs grep -lE "\.then\(|\.catch\(" >/dev/null 2>&1; then
+      async_pattern="promises"
+    fi
+    
+    if grep -rE "(try\s*{|catch\s*\(|throw\s+new)" . --include="*.ts" --include="*.js" --include="*.py" 2>/dev/null | head -3 | grep -q .; then
+      error_handling="try/catch blocks"
+    fi
+    
+    if ls *-[a-z]*.* 2>/dev/null | head -1 | grep -q .; then
+      naming_convention="kebab-case"
+    elif ls *_[a-z]*.* 2>/dev/null | head -1 | grep -q .; then
+      naming_convention="snake_case"
+    else
+      naming_convention="mixed/default"
+    fi
+    
+    patterns="### Code Patterns
+- Import style: $import_style
+- Async patterns: $async_pattern
+- Error handling: $error_handling
+- File naming: $naming_convention
+
+"
+  fi
+  
+  echo "$patterns"
+}
+
+generate_memory_md() {
+  local project_root
+  project_root=$(find_project_root)
+  
+  cd "$project_root" || { log_error "Cannot access project root"; exit 1; }
+  
+  log_info "Analyzing project at: $project_root"
+  
+  local language
+  language=$(detect_language)
+  local framework
+  framework=$(detect_framework)
+  local test_framework
+  test_framework=$(detect_test_framework)
+  local linting
+  linting=$(detect_linting_config)
+  local structure
+  structure=$(scan_directory_structure 2>/dev/null | head -30 || echo "Unable to scan")
+  local patterns
+  patterns=$(analyze_code_patterns)
+  
+  local package_name="unknown"
+  local package_version="0.0.0"
+  
+  if [[ -f "package.json" ]]; then
+    package_name=$(jq -r '.name // "unknown"' package.json 2>/dev/null || echo "unknown")
+    package_version=$(jq -r '.version // "0.0.0"' package.json 2>/dev/null || echo "0.0.0")
+  fi
+  
+  cat > "memory.md" << EOF
+# Project Context
+
+## Basic Information
+- **Project Name**: $package_name
+- **Version**: $package_version
+- **Root Directory**: $project_root
+- **Language**: $language
+- **Framework**: $framework
+- **Test Framework**: $test_framework
+- **Linting/Formatting**: $linting
+
+## Project Structure
+\`\`\`
+$structure
+\`\`\`
+
+$patterns
+
+## Conventions
+
+### File Naming
+<!-- Add project-specific file naming conventions -->
+
+### Code Style
+<!-- Add project-specific code style preferences -->
+
+### Testing
+<!-- Add testing patterns and expectations -->
+
+## Commands
+
+### Install Dependencies
+\`\`\`bash
+npm install
+\`\`\`
+
+### Run Tests
+\`\`\`bash
+$(if [[ "$test_framework" == "Jest" ]]; then echo "npm test"; elif [[ "$test_framework" == "Vitest" ]]; then echo "npm run test"; elif [[ "$test_framework" == "Bun" ]]; then echo "bun test"; else echo "npm test"; fi)
+\`\`\`
+
+### Run Linting
+\`\`\`bash
+$(if [[ "$linting" == *"ESLint"* ]]; then echo "npm run lint"; elif [[ "$linting" == *"Biome"* ]]; then echo "npx biome check ."; else echo "npm run lint"; fi)
+\`\`\`
+
+### Start Development Server
+\`\`\`bash
+$(if [[ "$framework" == *"Next.js"* ]]; then echo "npm run dev"; elif [[ "$framework" == *"Express"* ]]; then echo "npm run dev"; elif [[ -f "package.json" ]] && jq -e '.scripts.dev' package.json >/dev/null 2>&1; then echo "npm run dev"; else echo "# No dev script configured"; fi)
+\`\`\`
+
+## Notes
+<!-- Add any additional context about this project -->
+EOF
+  
+  log_success "Generated memory.md"
+  log_info "Review and customize memory.md before running Ralphy"
+  
+  if [[ -f ".gitignore" ]]; then
+    if ! grep -q "memory.md" .gitignore; then
+      log_warn "memory.md is not in .gitignore - consider adding it"
+      echo "" >> .gitignore
+      echo "# Ralphy context" >> .gitignore
+      echo "memory.md" >> .gitignore
+      log_info "Added memory.md to .gitignore"
+    fi
   fi
 }
 
@@ -126,6 +417,7 @@ ${BOLD}WORKFLOW OPTIONS:${RESET}
   --no-tests          Skip writing and running tests
   --no-lint           Skip linting
   --fast              Skip both tests and linting
+  --init              Analyze current project and generate memory.md
 
 ${BOLD}EXECUTION OPTIONS:${RESET}
   --max-iterations N  Stop after N iterations (0 = unlimited)
@@ -222,6 +514,10 @@ parse_args() {
         ;;
       --qwen)
         AI_ENGINE="qwen"
+        shift
+        ;;
+      --init)
+        INIT_MODE=true
         shift
         ;;
       --dry-run)
@@ -2018,6 +2314,11 @@ show_summary() {
 
 main() {
   parse_args "$@"
+
+  if [[ "$INIT_MODE" == true ]]; then
+    generate_memory_md
+    exit 0
+  fi
 
   if [[ "$DRY_RUN" == true ]] && [[ "$MAX_ITERATIONS" -eq 0 ]]; then
     MAX_ITERATIONS=1
