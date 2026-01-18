@@ -139,53 +139,72 @@ detect_language() {
 
 detect_framework() {
   local frameworks=()
-  
+
   if [[ -f "package.json" ]]; then
-    local deps
-    deps=$(jq -r '.dependencies // {} | keys[]' package.json 2>/dev/null || true)
-    
-    case "$deps" in
-      *express*) frameworks+=("Express") ;;
-      *koa*) frameworks+=("Koa") ;;
-      *fastify*) frameworks+=("Fastify") ;;
-      *nest*) frameworks+=("NestJS") ;;
-      *hapi*) frameworks+=("Hapi") ;;
-    esac
-    
-    local devDeps
-    devDeps=$(jq -r '.devDependencies // {} | keys[]' package.json 2>/dev/null || true)
-    
-    case "$devDeps" in
-      *next*) frameworks+=("Next.js") ;;
-      *nuxt*) frameworks+=("Nuxt") ;;
-      *vite*) frameworks+=("Vite") ;;
-      *webpack*) frameworks+=("Webpack") ;;
-    esac
+    local all_deps
+    all_deps=$(jq -r '(.dependencies // {}) + (.devDependencies // {}) | keys[]' package.json 2>/dev/null || true)
+
+    # Check each framework individually to capture all matches
+    echo "$all_deps" | grep -q "^express$" && frameworks+=("Express")
+    echo "$all_deps" | grep -q "^koa$" && frameworks+=("Koa")
+    echo "$all_deps" | grep -q "^fastify$" && frameworks+=("Fastify")
+    echo "$all_deps" | grep -qE "^@nestjs/" && frameworks+=("NestJS")
+    echo "$all_deps" | grep -q "^@hapi/hapi$" && frameworks+=("Hapi")
+    echo "$all_deps" | grep -q "^next$" && frameworks+=("Next.js")
+    echo "$all_deps" | grep -q "^nuxt$" && frameworks+=("Nuxt")
+    echo "$all_deps" | grep -q "^vite$" && frameworks+=("Vite")
+    echo "$all_deps" | grep -q "^react$" && frameworks+=("React")
+    echo "$all_deps" | grep -q "^vue$" && frameworks+=("Vue")
+    echo "$all_deps" | grep -q "^svelte$" && frameworks+=("Svelte")
+    echo "$all_deps" | grep -q "^webpack$" && frameworks+=("Webpack")
   fi
-  
+
+  # Python frameworks
+  if [[ -f "pyproject.toml" ]] || [[ -f "requirements.txt" ]]; then
+    local py_deps=""
+    [[ -f "pyproject.toml" ]] && py_deps+=$(grep -E "^\s*(fastapi|django|flask|starlette)" pyproject.toml 2>/dev/null || true)
+    [[ -f "requirements.txt" ]] && py_deps+=$(grep -iE "^(fastapi|django|flask|starlette)" requirements.txt 2>/dev/null || true)
+    [[ -n "$py_deps" ]] && echo "$py_deps" | grep -qi "fastapi" && frameworks+=("FastAPI")
+    [[ -n "$py_deps" ]] && echo "$py_deps" | grep -qi "django" && frameworks+=("Django")
+    [[ -n "$py_deps" ]] && echo "$py_deps" | grep -qi "flask" && frameworks+=("Flask")
+  fi
+
   if [[ ${#frameworks[@]} -eq 0 ]]; then
     echo "None detected"
   else
-    echo "$(IFS=,; echo "${frameworks[*]}")"
+    echo "$(IFS=', '; echo "${frameworks[*]}")"
   fi
 }
 
 detect_test_framework() {
+  local test_frameworks=()
+
   if [[ -f "package.json" ]]; then
-    local devDeps
-    devDeps=$(jq -r '.devDependencies // {} | keys[]' package.json 2>/dev/null || true)
-    
-    case "$devDeps" in
-      *jest*) echo "Jest" ;;
-      *vitest*) echo "Vitest" ;;
-      *mocha*) echo "Mocha" ;;
-      *bun*) echo "Bun" ;;
-      *playwright*) echo "Playwright" ;;
-      *cypress*) echo "Cypress" ;;
-      *) echo "None" ;;
-    esac
+    local all_deps
+    all_deps=$(jq -r '(.dependencies // {}) + (.devDependencies // {}) | keys[]' package.json 2>/dev/null || true)
+
+    echo "$all_deps" | grep -q "^jest$" && test_frameworks+=("Jest")
+    echo "$all_deps" | grep -q "^vitest$" && test_frameworks+=("Vitest")
+    echo "$all_deps" | grep -q "^mocha$" && test_frameworks+=("Mocha")
+    echo "$all_deps" | grep -q "^@playwright/test$" && test_frameworks+=("Playwright")
+    echo "$all_deps" | grep -q "^cypress$" && test_frameworks+=("Cypress")
+    echo "$all_deps" | grep -q "^ava$" && test_frameworks+=("AVA")
+    echo "$all_deps" | grep -q "^tap$" && test_frameworks+=("Tap")
+  fi
+
+  # Python test frameworks
+  if [[ -f "pyproject.toml" ]] || [[ -f "requirements.txt" ]] || [[ -f "setup.py" ]]; then
+    [[ -f "pytest.ini" ]] || [[ -f "pyproject.toml" ]] && grep -q "pytest" pyproject.toml 2>/dev/null && test_frameworks+=("pytest")
+    [[ -f "requirements.txt" ]] && grep -qi "pytest" requirements.txt 2>/dev/null && test_frameworks+=("pytest")
+  fi
+
+  # Bun has built-in test runner
+  [[ -f "bun.lockb" ]] && test_frameworks+=("Bun")
+
+  if [[ ${#test_frameworks[@]} -eq 0 ]]; then
+    echo "None detected"
   else
-    echo "None"
+    echo "$(IFS=', '; echo "${test_frameworks[*]}")"
   fi
 }
 
@@ -209,77 +228,115 @@ detect_linting_config() {
 scan_directory_structure() {
   local output=""
   local max_depth=3
-  local current_depth=0
-  
+
+  # Directories to exclude from scanning
+  local -a excluded_dirs=("node_modules" ".git" "dist" "build" ".next" ".nuxt" ".output" "coverage" ".cache" "__pycache__" ".venv" "venv" ".tox" ".pytest_cache")
+
+  is_excluded() {
+    local name="$1"
+    for excluded in "${excluded_dirs[@]}"; do
+      [[ "$name" == "$excluded" ]] && return 0
+    done
+    return 1
+  }
+
   scan_dir() {
     local dir="$1"
     local indent="$2"
-    local max_depth=$3
-    local current_depth=$4
-    
+    local current_depth="$3"
+
     [[ $current_depth -ge $max_depth ]] && return
-    
+
     for item in "$dir"/*; do
       [[ -e "$item" ]] || continue
       local name
       name=$(basename "$item")
-      
+
       if [[ -d "$item" ]]; then
+        # Skip excluded directories
+        is_excluded "$name" && continue
         output+="${indent}📁 $name/\n"
-        scan_dir "$item" "  $indent" $max_depth $((current_depth + 1))
+        scan_dir "$item" "  $indent" $((current_depth + 1))
       else
         local ext="${name##*.}"
         case "$ext" in
-          ts|tsx|js|jsx|mjs|cjs) output+="${indent}📄 $name\n" ;;
-          json|md|txt|yml|yaml) output+="${indent}📄 $name\n" ;;
-          *) output+="${indent}📄 $name\n" ;;
+          ts|tsx|js|jsx|mjs|cjs|py|go|rs) output+="${indent}📄 $name\n" ;;
+          json|md|txt|yml|yaml|toml) output+="${indent}📄 $name\n" ;;
         esac
       fi
     done
   }
-  
-  scan_dir "." "" $max_depth 0
+
+  scan_dir "." "" 0
   echo -e "$output"
 }
 
 analyze_code_patterns() {
   local patterns=""
-  
-  if [[ -f "package.json" ]]; then
-    local import_style="unknown"
-    local async_pattern="unknown"
-    local error_handling="unknown"
-    local naming_convention="unknown"
-    
-    if ls *.js *.ts 2>/dev/null | head -5 | xargs grep -l "import.*from" >/dev/null 2>&1; then
-      if grep -r "import.*from" *.js *.ts 2>/dev/null | head -3 | grep -q "import [a-zA-Z]* from"; then
-        import_style="named imports"
+  local import_style="unknown"
+  local async_pattern="unknown"
+  local error_handling="unknown"
+  local naming_convention="unknown"
+
+  # Find source files (excluding node_modules, etc.)
+  local src_files
+  src_files=$(find . -type f \( -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" \) \
+    -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/dist/*" -not -path "*/build/*" \
+    2>/dev/null | head -20)
+
+  if [[ -n "$src_files" ]]; then
+    # Detect import style
+    if echo "$src_files" | xargs grep -l "import.*from" 2>/dev/null | head -1 | grep -q .; then
+      if echo "$src_files" | xargs grep -h "^import" 2>/dev/null | grep -qE "import \{"; then
+        import_style="ES modules (named imports)"
+      elif echo "$src_files" | xargs grep -h "^import" 2>/dev/null | grep -qE "import [A-Za-z]+ from"; then
+        import_style="ES modules (default imports)"
       else
-        import_style="default imports"
+        import_style="ES modules"
+      fi
+    elif echo "$src_files" | xargs grep -l "require(" 2>/dev/null | head -1 | grep -q .; then
+      import_style="CommonJS (require)"
+    fi
+
+    # Detect async patterns
+    if echo "$src_files" | xargs grep -l "async.*await\|\.then(" 2>/dev/null | head -1 | grep -q .; then
+      if echo "$src_files" | xargs grep -h "async" 2>/dev/null | grep -q "async"; then
+        async_pattern="async/await"
+      else
+        async_pattern="Promises (.then)"
       fi
     fi
-    
-    if grep -rE "(try\s*{|catch\s*\(|throw\s+new)" . --include="*.ts" --include="*.js" 2>/dev/null | head -3 | grep -q .; then
-      error_handling="try/catch blocks"
+
+    # Detect error handling
+    if echo "$src_files" | xargs grep -lE "try\s*\{|\.catch\(" 2>/dev/null | head -1 | grep -q .; then
+      error_handling="try/catch and .catch()"
     fi
-    
-    if ls *-[a-z]*.* 2>/dev/null | head -1 | grep -q .; then
+  fi
+
+  # Detect file naming convention (check src/ or root)
+  local check_dirs=("." "src" "lib" "app")
+  for dir in "${check_dirs[@]}"; do
+    [[ -d "$dir" ]] || continue
+    if find "$dir" -maxdepth 1 -type f -name "*-*.*" 2>/dev/null | head -1 | grep -q .; then
       naming_convention="kebab-case"
-    elif ls *_[a-z]*.* 2>/dev/null | head -1 | grep -q .; then
+      break
+    elif find "$dir" -maxdepth 1 -type f -name "*_*.*" 2>/dev/null | head -1 | grep -q .; then
       naming_convention="snake_case"
-    else
-      naming_convention="mixed/default"
+      break
+    elif find "$dir" -maxdepth 1 -type f -name "*[A-Z]*.*" 2>/dev/null | head -1 | grep -q .; then
+      naming_convention="PascalCase/camelCase"
+      break
     fi
-    
-    patterns="### Code Patterns
+  done
+
+  patterns="### Code Patterns
 - Import style: $import_style
 - Async patterns: $async_pattern
 - Error handling: $error_handling
 - File naming: $naming_convention
 
 "
-  fi
-  
+
   echo "$patterns"
 }
 
@@ -504,7 +561,7 @@ ${BOLD}WORKFLOW OPTIONS:${RESET}
   --memory FILE       Memory file path (default: memory.md)
   <task>              Run single task (brownfield mode)
 
-${BOLD}BROWNSFIELD USAGE:${RESET}
+${BOLD}BROWNFIELD USAGE:${RESET}
   ralphy --init                 # Generate memory.md for project
   ralphy "Add login feature"    # Run single task with memory context
   ralphy --memory myproj.md "Add login"  # Use custom memory file
@@ -546,7 +603,7 @@ ${BOLD}EXAMPLES:${RESET}
   ./ralphy.sh --yaml tasks.yaml            # Use YAML task file
   ./ralphy.sh --github owner/repo          # Fetch from GitHub issues
 
-${BOLD}BROWNSFIELD EXAMPLES:${RESET}
+${BOLD}BROWNFIELD EXAMPLES:${RESET}
   ./ralphy.sh --init                       # Generate memory.md for project
   ./ralphy.sh "Add login API endpoint"     # Run single task with context
 

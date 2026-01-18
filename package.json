@@ -21,11 +21,11 @@
     "opencode",
     "qwen"
   ],
-  "author": "Akshay Joshi",
+  "author": "Michael Shimeles",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/doozie-akshay/ralphy.git"
+    "url": "https://github.com/michaelshimeles/ralphy.git"
   },
   "engines": {
     "node": ">=18.0.0"
