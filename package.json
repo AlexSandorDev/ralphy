@@ -1,0 +1,30 @@
+{
+  "name": "ralphy",
+  "version": "4.0.0",
+  "description": "Autonomous AI coding loop - run in any project with ralphy --init && npx ralphy 'task'",
+  "main": "ralphy.sh",
+  "bin": {
+    "ralphy": "./ralphy.sh"
+  },
+  "scripts": {
+    "start": "./ralphy.sh",
+    "init": "./ralphy.sh --init"
+  },
+  "keywords": [
+    "ai",
+    "coding",
+    "autonomous",
+    "claude",
+    "cursor",
+    "opencode"
+  ],
+  "author": "Akshay Joshi",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/doozie-akshay/ralphy.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -73,6 +73,8 @@ declare -a task_branches=()
 WORKTREE_BASE=""
 ORIGINAL_DIR=""
 INIT_MODE=false
+SINGLE_TASK_MODE=false
+SINGLE_TASK=""
 
 # ============================================
 # UTILITY FUNCTIONS
@@ -418,6 +420,11 @@ ${BOLD}WORKFLOW OPTIONS:${RESET}
   --no-lint           Skip linting
   --fast              Skip both tests and linting
   --init              Analyze current project and generate memory.md
+  <task>              Run single task (brownfield mode)
+
+${BOLD}BROWNSFIELD USAGE:${RESET}
+  ralphy --init                 # Generate memory.md for project
+  ralphy "Add login feature"    # Run single task with memory context
 
 ${BOLD}EXECUTION OPTIONS:${RESET}
   --max-iterations N  Stop after N iterations (0 = unlimited)
@@ -455,6 +462,10 @@ ${BOLD}EXAMPLES:${RESET}
   ./ralphy.sh --parallel --max-parallel 4  # Run 4 tasks concurrently
   ./ralphy.sh --yaml tasks.yaml            # Use YAML task file
   ./ralphy.sh --github owner/repo          # Fetch from GitHub issues
+
+${BOLD}BROWNSFIELD EXAMPLES:${RESET}
+  ./ralphy.sh --init                       # Generate memory.md for project
+  ./ralphy.sh "Add login API endpoint"     # Run single task with context
 
 ${BOLD}PRD FORMATS:${RESET}
   Markdown (PRD.md):
@@ -591,10 +602,16 @@ parse_args() {
         show_version
         exit 0
         ;;
-      *)
+      -*)
         log_error "Unknown option: $1"
         echo "Use --help for usage"
         exit 1
+        ;;
+      *)
+        # Treat as single task (brownfield mode)
+        SINGLE_TASK_MODE=true
+        SINGLE_TASK="$1"
+        shift
         ;;
     esac
   done
@@ -685,6 +702,11 @@ check_requirements() {
   if [[ ${#missing[@]} -gt 0 ]]; then
     log_warn "Missing optional dependencies: ${missing[*]}"
     log_warn "Token tracking may not work properly"
+  fi
+
+  # Check for memory.md (optional for brownfield projects)
+  if [[ ! -f "memory.md" ]] && [[ -d ".git" ]]; then
+    log_warn "memory.md not found. Run 'ralphy --init' to generate project context"
   fi
 
   # Create progress.txt if missing
@@ -1110,13 +1132,18 @@ build_prompt() {
   local task_override="${1:-}"
   local prompt=""
   
+  # Add memory.md context if available (brownfield projects)
+  if [[ -f "memory.md" ]]; then
+    prompt="@memory.md"
+  fi
+  
   # Add context based on PRD source
   case "$PRD_SOURCE" in
     markdown)
-      prompt="@${PRD_FILE} @progress.txt"
+      prompt="$prompt @${PRD_FILE} @progress.txt"
       ;;
     yaml)
-      prompt="@${PRD_FILE} @progress.txt"
+      prompt="$prompt @${PRD_FILE} @progress.txt"
       ;;
     github)
       # For GitHub issues, we include the issue body
@@ -1173,6 +1200,13 @@ $step. The task will be marked complete automatically. Just note the completion 
 $step. Append your progress to progress.txt.
 $((step+1)). Commit your changes with a descriptive message.
 ONLY WORK ON A SINGLE TASK."
+
+  # Add brownfield-specific instructions
+  if [[ -f "memory.md" ]]; then
+    prompt="$prompt
+
+IMPORTANT: Follow the project conventions specified in memory.md. Adhere to the coding style, file naming conventions, and patterns documented there."
+  fi
 
   if [[ "$SKIP_TESTS" == false ]]; then
     prompt="$prompt Do not proceed if tests fail."
@@ -2318,6 +2352,33 @@ main() {
   if [[ "$INIT_MODE" == true ]]; then
     generate_memory_md
     exit 0
+  fi
+
+  # Set up cleanup trap
+  trap cleanup EXIT
+  trap 'exit 130' INT TERM HUP
+  
+  # Check requirements
+  check_requirements
+
+  # Single task mode (brownfield)
+  if [[ "$SINGLE_TASK_MODE" == true ]]; then
+    echo "${BOLD}============================================${RESET}"
+    echo "${BOLD}Ralphy${RESET} - Single Task Mode"
+    local engine_display
+    case "$AI_ENGINE" in
+      opencode) engine_display="${CYAN}OpenCode${RESET}" ;;
+      cursor) engine_display="${YELLOW}Cursor Agent${RESET}" ;;
+      codex) engine_display="${BLUE}Codex${RESET}" ;;
+      qwen) engine_display="${GREEN}Qwen-Code${RESET}" ;;
+      *) engine_display="${MAGENTA}Claude Code${RESET}" ;;
+    esac
+    echo "Engine: $engine_display"
+    echo "Task: ${CYAN}$SINGLE_TASK${RESET}"
+    echo "${BOLD}============================================${RESET}"
+    
+    run_single_task "$SINGLE_TASK" 1
+    exit $?
   fi
 
   if [[ "$DRY_RUN" == true ]] && [[ "$MAX_ITERATIONS" -eq 0 ]]; then
