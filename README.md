@@ -2,334 +2,250 @@
 
 ![Ralphy](assets/ralphy.jpeg)
 
-An autonomous AI coding loop that runs AI assistants (Claude Code, OpenCode, Codex, or Cursor) to work through tasks until everything is complete.
+Autonomous AI coding loop. Runs AI agents on tasks until done.
 
-## What It Does
+## Install
 
-1. Reads tasks from a PRD file, YAML file, or GitHub Issues
-2. Sends each task to an AI assistant
-3. The AI implements the feature, writes tests, and commits changes
-4. Repeats until all tasks are done
-
-## Quick Start
-
+**Option A: npm** (recommended)
 ```bash
-# Clone the repo
-git clone https://github.com/yourusername/ralphy.git
-cd ralphy
-chmod +x ralphy.sh
+npm install -g ralphy-cli
 
-# Create a PRD file with tasks
-cat > PRD.md << 'EOF'
-# My Project
-
-## Tasks
-- [ ] Create user authentication
-- [ ] Add dashboard page
-- [ ] Build API endpoints
-EOF
-
-# Run Ralphy
-./ralphy.sh
+# Then use anywhere
+ralphy "add login button"
+ralphy --prd PRD.md
 ```
 
-That's it. Ralphy will work through each task autonomously.
-
-## Running the Bun Server
-
-This project includes a simple Bun HTTP server. To run it:
-
+**Option B: Clone**
 ```bash
-# Install dependencies
-bun install
+git clone https://github.com/michaelshimeles/ralphy.git
+cd ralphy && chmod +x ralphy.sh
 
-# Start the server
-bun run start
-```
-
-The server runs on port 3000 with the following endpoints:
-- `GET /` - Returns "Hello from Bun"
-- `GET /health` - Returns `{"status":"ok"}`
-
-## Requirements
-
-**Required:**
-- One of: [Claude Code CLI](https://github.com/anthropics/claude-code), [OpenCode CLI](https://opencode.ai/docs/), Codex CLI, or [Cursor](https://cursor.com) (with `agent` in PATH)
-- `jq` (for JSON parsing)
-
-**Optional:**
-- `yq` - only if using YAML task files
-- `gh` - only if using GitHub Issues or `--create-pr`
-- `bc` - for cost calculation
-
-## Task Sources
-
-### Markdown (default)
-
-```bash
+./ralphy.sh "add login button"
 ./ralphy.sh --prd PRD.md
 ```
 
-Format your PRD like this:
+Both versions have identical features. Examples below use `ralphy` (npm) - substitute `./ralphy.sh` if using the bash script.
+
+## Two Modes
+
+**Single task** - just tell it what to do:
+```bash
+ralphy "add dark mode"
+ralphy "fix the auth bug"
+```
+
+**Task list** - work through a PRD:
+```bash
+ralphy              # uses PRD.md
+ralphy --prd tasks.md
+```
+
+## Project Config
+
+Optional. Stores rules the AI must follow.
+
+```bash
+ralphy --init              # auto-detects project settings
+ralphy --config            # view config
+ralphy --add-rule "use TypeScript strict mode"
+```
+
+Creates `.ralphy/config.yaml`:
+```yaml
+project:
+  name: "my-app"
+  language: "TypeScript"
+  framework: "Next.js"
+
+commands:
+  test: "npm test"
+  lint: "npm run lint"
+  build: "npm run build"
+
+rules:
+  - "use server actions not API routes"
+  - "follow error pattern in src/utils/errors.ts"
+
+boundaries:
+  never_touch:
+    - "src/legacy/**"
+    - "*.lock"
+```
+
+Rules apply to all tasks (single or PRD).
+
+## AI Engines
+
+```bash
+ralphy              # Claude Code (default)
+ralphy --opencode   # OpenCode
+ralphy --cursor     # Cursor
+ralphy --codex      # Codex
+ralphy --qwen       # Qwen-Code
+ralphy --droid      # Factory Droid
+```
+
+## Task Sources
+
+**Markdown** (default):
+```bash
+ralphy --prd PRD.md
+```
 ```markdown
 ## Tasks
-- [ ] First task
-- [ ] Second task
-- [x] Completed task (will be skipped)
+- [ ] create auth
+- [ ] add dashboard
+- [x] done task (skipped)
 ```
 
-### YAML
-
+**YAML**:
 ```bash
-./ralphy.sh --yaml tasks.yaml
+ralphy --yaml tasks.yaml
 ```
-
-Format:
 ```yaml
 tasks:
-  - title: First task
+  - title: create auth
     completed: false
-  - title: Second task
+  - title: add dashboard
     completed: false
 ```
 
-### GitHub Issues
+**GitHub Issues**:
+```bash
+ralphy --github owner/repo
+ralphy --github owner/repo --github-label "ready"
+```
+
+## Parallel Execution
 
 ```bash
-./ralphy.sh --github owner/repo
-./ralphy.sh --github owner/repo --github-label "ready"
+ralphy --parallel                  # 3 agents default
+ralphy --parallel --max-parallel 5 # 5 agents
 ```
 
-Uses open issues from the repo. Issues are closed automatically when done.
-
-## Parallel Mode
-
-Run multiple AI agents simultaneously, each in its own isolated git worktree:
-
-```bash
-./ralphy.sh --parallel                    # 3 agents (default)
-./ralphy.sh --parallel --max-parallel 5   # 5 agents
+Each agent gets isolated worktree + branch:
+```
+Agent 1 → /tmp/xxx/agent-1 → ralphy/agent-1-create-auth
+Agent 2 → /tmp/xxx/agent-2 → ralphy/agent-2-add-dashboard
+Agent 3 → /tmp/xxx/agent-3 → ralphy/agent-3-build-api
 ```
 
-### How It Works
+Without `--create-pr`: auto-merges back, AI resolves conflicts.
+With `--create-pr`: keeps branches, creates PRs.
 
-Each agent gets:
-- Its own git worktree (separate directory)
-- Its own branch (`ralphy/agent-1-task-name`, `ralphy/agent-2-task-name`, etc.)
-- Complete isolation from other agents
-
-```
-Agent 1 ─► worktree: /tmp/xxx/agent-1 ─► branch: ralphy/agent-1-create-user-model
-Agent 2 ─► worktree: /tmp/xxx/agent-2 ─► branch: ralphy/agent-2-add-api-endpoints
-Agent 3 ─► worktree: /tmp/xxx/agent-3 ─► branch: ralphy/agent-3-setup-database
-```
-
-### After Completion
-
-**Without `--create-pr`:** Branches are automatically merged back to your base branch. If there are merge conflicts, AI will attempt to resolve them.
-
-**With `--create-pr`:** Each completed task gets its own pull request. Branches are kept for review.
-
-```bash
-./ralphy.sh --parallel --create-pr          # Create PRs for each task
-./ralphy.sh --parallel --create-pr --draft-pr  # Create draft PRs
-```
-
-### YAML Parallel Groups
-
-Control which tasks can run together:
-
+**YAML parallel groups** - control execution order:
 ```yaml
 tasks:
   - title: Create User model
     parallel_group: 1
   - title: Create Post model
-    parallel_group: 1  # Runs with User model (same group)
+    parallel_group: 1  # same group = runs together
   - title: Add relationships
-    parallel_group: 2  # Runs after group 1 completes
+    parallel_group: 2  # runs after group 1
 ```
-
-Tasks without `parallel_group` default to group `0` and run before higher-numbered groups.
 
 ## Branch Workflow
 
-Create a separate branch for each task:
-
 ```bash
-./ralphy.sh --branch-per-task                        # Create feature branches
-./ralphy.sh --branch-per-task --base-branch main     # Branch from main
-./ralphy.sh --branch-per-task --create-pr            # Create PRs automatically
-./ralphy.sh --branch-per-task --create-pr --draft-pr # Create draft PRs
+ralphy --branch-per-task                # branch per task
+ralphy --branch-per-task --create-pr    # + create PRs
+ralphy --branch-per-task --draft-pr     # + draft PRs
+ralphy --base-branch main               # branch from main
 ```
 
-Branch naming: `ralphy/<task-name-slug>`
+Branch naming: `ralphy/<task-slug>`
 
-Example: "Add user authentication" becomes `ralphy/add-user-authentication`
+## Options
 
-## AI Engine
+| Flag | What it does |
+|------|--------------|
+| `--prd FILE` | task file (default: PRD.md) |
+| `--yaml FILE` | YAML task file |
+| `--github REPO` | use GitHub issues |
+| `--github-label TAG` | filter issues by label |
+| `--parallel` | run parallel |
+| `--max-parallel N` | max agents (default: 3) |
+| `--branch-per-task` | branch per task |
+| `--base-branch NAME` | base branch |
+| `--create-pr` | create PRs |
+| `--draft-pr` | draft PRs |
+| `--no-tests` | skip tests |
+| `--no-lint` | skip lint |
+| `--fast` | skip tests + lint |
+| `--no-commit` | don't auto-commit |
+| `--max-iterations N` | stop after N tasks |
+| `--max-retries N` | retries per task (default: 3) |
+| `--retry-delay N` | seconds between retries |
+| `--dry-run` | preview only |
+| `-v, --verbose` | debug output |
+| `--init` | setup .ralphy/ config |
+| `--config` | show config |
+| `--add-rule "rule"` | add rule to config |
 
-```bash
-./ralphy.sh              # Claude Code (default)
-./ralphy.sh --codex      # Codex CLI
-./ralphy.sh --opencode   # OpenCode
-./ralphy.sh --cursor     # Cursor agent
-```
+## Requirements
 
-### Engine Details
+**Required:**
+- AI CLI: [Claude Code](https://github.com/anthropics/claude-code), [OpenCode](https://opencode.ai/docs/), [Cursor](https://cursor.com), Codex, Qwen-Code, or [Factory Droid](https://docs.factory.ai/cli/getting-started/quickstart)
 
-| Engine | CLI Command | Permissions Flag | Output |
-|--------|-------------|------------------|--------|
-| Claude Code | `claude` | `--dangerously-skip-permissions` | Token usage + cost estimate |
-| OpenCode | `opencode` | `OPENCODE_PERMISSION='{"*":"allow"}'` | Token usage + actual cost |
-| Codex | `codex` | N/A | Token usage (if provided) |
-| Cursor | `agent` | `--force` | API duration (no token counts) |
+**npm version (`ralphy-cli`):**
+- Node.js 18+ or Bun
 
-**Note:** Cursor's CLI doesn't expose token usage, so Ralphy tracks total API duration instead.
+**Bash version (`ralphy.sh`):**
+- `jq`
+- `yq` (optional, for YAML tasks)
+- `bc` (optional, for cost calc)
 
-## All Options
+**Both versions:**
+- `gh` (optional, for GitHub issues / `--create-pr`)
 
-### AI Engine
-| Flag | Description |
-|------|-------------|
-| `--claude` | Use Claude Code (default) |
-| `--codex` | Use Codex CLI |
-| `--opencode` | Use OpenCode |
-| `--cursor`, `--agent` | Use Cursor agent |
+## Engine Details
 
-### Task Source
-| Flag | Description |
-|------|-------------|
-| `--prd FILE` | PRD file path (default: PRD.md) |
-| `--yaml FILE` | Use YAML task file |
-| `--github REPO` | Fetch from GitHub issues (owner/repo) |
-| `--github-label TAG` | Filter GitHub issues by label |
+| Engine | CLI | Permissions | Output |
+|--------|-----|-------------|--------|
+| Claude | `claude` | `--dangerously-skip-permissions` | tokens + cost |
+| OpenCode | `opencode` | `full-auto` | tokens + cost |
+| Codex | `codex` | N/A | tokens |
+| Cursor | `agent` | `--force` | duration |
+| Qwen | `qwen` | `--approval-mode yolo` | tokens |
+| Droid | `droid exec` | `--auto medium` | duration |
 
-### Parallel Execution
-| Flag | Description |
-|------|-------------|
-| `--parallel` | Run tasks in parallel |
-| `--max-parallel N` | Max concurrent agents (default: 3) |
-
-### Git Branches
-| Flag | Description |
-|------|-------------|
-| `--branch-per-task` | Create a branch for each task |
-| `--base-branch NAME` | Base branch (default: current branch) |
-| `--create-pr` | Create pull requests |
-| `--draft-pr` | Create PRs as drafts |
-
-### Workflow
-| Flag | Description |
-|------|-------------|
-| `--no-tests` | Skip tests |
-| `--no-lint` | Skip linting |
-| `--fast` | Skip both tests and linting |
-
-### Execution Control
-| Flag | Description |
-|------|-------------|
-| `--max-iterations N` | Stop after N tasks (0 = unlimited) |
-| `--max-retries N` | Retries per task on failure (default: 3) |
-| `--retry-delay N` | Seconds between retries (default: 5) |
-| `--dry-run` | Preview without executing |
-
-### Other
-| Flag | Description |
-|------|-------------|
-| `-v, --verbose` | Debug output |
-| `-h, --help` | Show help |
-| `--version` | Show version |
-
-## Examples
-
-```bash
-# Basic usage
-./ralphy.sh
-
-# Basic usage with Codex
-./ralphy.sh --codex
-
-# Fast mode with OpenCode
-./ralphy.sh --opencode --fast
-
-# Use Cursor agent
-./ralphy.sh --cursor
-
-# Cursor with parallel execution
-./ralphy.sh --cursor --parallel --max-parallel 4
-
-# Parallel with 4 agents and auto-PRs
-./ralphy.sh --parallel --max-parallel 4 --create-pr
-
-# GitHub issues with parallel execution
-./ralphy.sh --github myorg/myrepo --parallel
-
-# Feature branch workflow
-./ralphy.sh --branch-per-task --create-pr --base-branch main
-
-# Limited iterations with draft PRs
-./ralphy.sh --max-iterations 5 --branch-per-task --create-pr --draft-pr
-
-# Preview what would happen
-./ralphy.sh --dry-run --verbose
-```
-
-## Progress Display
-
-While running, you'll see:
-- A spinner with the current step (Thinking, Reading, Implementing, Testing, Committing)
-- The current task name
-- Elapsed time
-
-In parallel mode:
-- Number of agents setting up, running, done, and failed
-- Final results with branch names
-- Error logs for any failed agents
-
-## Cost Tracking
-
-At completion, Ralphy shows different metrics depending on the AI engine:
-
-| Engine | Metrics Shown |
-|--------|---------------|
-| Claude Code | Input/output tokens, estimated cost |
-| OpenCode | Input/output tokens, actual cost |
-| Codex | Input/output tokens (if provided) |
-| Cursor | Total API duration (tokens not available) |
-
-All engines show branches created (if using `--branch-per-task`).
+---
 
 ## Changelog
 
-### v3.1.0
-- Added Cursor agent support (`--cursor` or `--agent` flag)
-- Cursor uses `--print --force` flags for non-interactive execution
-- Track API duration for Cursor (token counts not available in Cursor CLI)
-- Improved task completion verification (checks actual PRD state, not just AI output)
-- Fixed display issues with task counts
+### v4.1.0
+- TypeScript CLI: `npm install -g ralphy-cli`
+- cross-platform binaries (macOS, Linux, Windows)
+- no dependencies on jq/yq/bc for npm version
 
-### v3.0.1
-- Parallel agents now run in isolated git worktrees
-- Auto-merge branches when not using `--create-pr`
-- AI-powered merge conflict resolution
-- Real-time parallel status display (setup/running/done/failed)
-- Show error logs for failed agents
-- Improved worktree creation with detailed logging
+### v4.0.0
+- single-task mode: `ralphy "task"` without PRD
+- project config: `--init` creates `.ralphy/` with rules + auto-detection
+- new: `--config`, `--add-rule`, `--no-commit`
+
+### v3.3.0
+- Factory Droid support (`--droid`)
+
+### v3.2.0
+- Qwen-Code support (`--qwen`)
+
+### v3.1.0
+- Cursor support (`--cursor`)
+- better task verification
 
 ### v3.0.0
-- Added parallel task execution (`--parallel`, `--max-parallel`)
-- Added git branch per task (`--branch-per-task`, `--create-pr`, `--draft-pr`)
-- Added multiple PRD formats (Markdown, YAML, GitHub Issues)
-- Added YAML parallel groups
+- parallel execution with worktrees
+- branch-per-task + auto-PR
+- YAML + GitHub Issues sources
+- parallel groups
 
 ### v2.0.0
-- Added OpenCode support (`--opencode`)
-- Added retry logic
-- Added `--max-iterations`, `--dry-run`, `--verbose`
-- Cross-platform notifications
+- OpenCode support
+- retry logic
+- `--max-iterations`, `--dry-run`
 
 ### v1.0.0
-- Initial release
+- initial release
 
 ## License
 
