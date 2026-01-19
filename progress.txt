@@ -59,3 +59,25 @@ Added comprehensive functions to `ralphy.sh` for managing task files in the `tas
 - Created `test_prompts.sh` with 18 tests for prompt files
 - Tests verify: file existence, required placeholders, Context7 instructions, output requirements
 - All 66 tests pass (48 task folder + 18 prompt tests)
+
+## 2026-01-19: Created prompts/implement.txt with reasoning documentation
+
+### Completed Task: Create prompts/implement.txt (document reasoning, not just changes)
+
+**prompts/implement.txt Features:**
+- Template placeholders: `{{TASK_FILE}}`, `{{TASK_NAME}}`
+- Instructions to read Research section first before coding
+- Requirements for documenting reasoning:
+  - Approach chosen
+  - Alternatives considered
+  - Why this approach was selected
+  - Key decisions made
+  - Files changed
+- Output requirements (update task file Implementation section, set Next Agent to "test-typecheck")
+- Failure handling (5 attempts, Needs-Human marking)
+- Clear rules: follow patterns from research, keep changes focused, don't over-engineer
+
+**Testing:**
+- Added 10 new tests to `test_prompts.sh` for implement.txt
+- Tests verify: file existence, placeholders, reasoning requirements, output requirements, research reading, failure handling
+- All 79 tests pass (48 task folder + 31 prompt tests)

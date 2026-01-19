@@ -109,6 +109,51 @@ test_research_prompt_no_implementation() {
 }
 
 # ============================================
+# IMPLEMENT PROMPT TESTS
+# ============================================
+
+test_implement_prompt_exists() {
+  echo "Test: implement.txt exists"
+  assert_file_exists "${PROMPTS_DIR}/implement.txt" "implement.txt exists"
+}
+
+test_implement_prompt_not_empty() {
+  echo "Test: implement.txt is not empty"
+  assert_file_not_empty "${PROMPTS_DIR}/implement.txt" "implement.txt has content"
+}
+
+test_implement_prompt_has_task_placeholders() {
+  echo "Test: implement.txt has required placeholders"
+  assert_file_contains "${PROMPTS_DIR}/implement.txt" "{{TASK_FILE}}" "Has TASK_FILE placeholder"
+  assert_file_contains "${PROMPTS_DIR}/implement.txt" "{{TASK_NAME}}" "Has TASK_NAME placeholder"
+}
+
+test_implement_prompt_has_reasoning_requirements() {
+  echo "Test: implement.txt requires reasoning documentation"
+  assert_file_contains "${PROMPTS_DIR}/implement.txt" "reasoning" "Mentions reasoning"
+  assert_file_contains "${PROMPTS_DIR}/implement.txt" "Alternatives considered" "Requires alternatives documentation"
+  assert_file_contains "${PROMPTS_DIR}/implement.txt" "Why this approach" "Requires explanation of choice"
+}
+
+test_implement_prompt_has_output_requirements() {
+  echo "Test: implement.txt has output requirements"
+  assert_file_contains "${PROMPTS_DIR}/implement.txt" "Implementation.*Status.*Complete" "Has status update instruction"
+  assert_file_contains "${PROMPTS_DIR}/implement.txt" "Next Agent.*test-typecheck" "Has next agent instruction"
+}
+
+test_implement_prompt_reads_research() {
+  echo "Test: implement.txt instructs to read research first"
+  assert_file_contains "${PROMPTS_DIR}/implement.txt" "Research" "References Research section"
+  assert_file_contains "${PROMPTS_DIR}/implement.txt" "Read.*Research" "Instructs to read research first"
+}
+
+test_implement_prompt_has_failure_handling() {
+  echo "Test: implement.txt has failure handling"
+  assert_file_contains "${PROMPTS_DIR}/implement.txt" "5.*attempts" "Has 5 attempt limit reference"
+  assert_file_contains "${PROMPTS_DIR}/implement.txt" "Needs-Human" "Has Needs-Human reference"
+}
+
+# ============================================
 # SEQUENTIAL PROMPT TESTS
 # ============================================
 
@@ -155,6 +200,15 @@ test_research_prompt_has_context7_instructions
 test_research_prompt_has_codebase_exploration
 test_research_prompt_has_output_requirements
 test_research_prompt_no_implementation
+
+# Implement prompt tests
+test_implement_prompt_exists
+test_implement_prompt_not_empty
+test_implement_prompt_has_task_placeholders
+test_implement_prompt_has_reasoning_requirements
+test_implement_prompt_has_output_requirements
+test_implement_prompt_reads_research
+test_implement_prompt_has_failure_handling
 
 # Sequential prompt tests
 test_sequential_prompt_exists
