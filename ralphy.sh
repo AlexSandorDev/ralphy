@@ -825,6 +825,347 @@ check_waiting_tasks() {
 }
 
 # ============================================
+# AGENT RUNNER FUNCTIONS
+# ============================================
+
+# Get current attempts count for a subtask
+# Usage: get_subtask_attempts "filepath" "subtask_name"
+get_subtask_attempts() {
+  local filepath="$1"
+  local subtask="$2"
+
+  [[ -f "$filepath" ]] || return 1
+
+  # Extract attempts from line like "### Research — Status: Pending | Attempts: 2/5"
+  local line
+  line=$(grep -m1 "^### ${subtask} —" "$filepath" 2>/dev/null || echo "")
+
+  if [[ -z "$line" ]]; then
+    echo "0"
+    return 0
+  fi
+
+  local attempts
+  attempts=$(echo "$line" | grep -oE 'Attempts: [0-9]+' | grep -oE '[0-9]+' || echo "0")
+  echo "${attempts:-0}"
+}
+
+# Load and prepare a prompt from file with placeholder substitution
+# Usage: prepare_prompt "prompt_file" "task_file" "task_name"
+prepare_prompt() {
+  local prompt_file="$1"
+  local task_file="$2"
+  local task_name="$3"
+
+  [[ -f "$prompt_file" ]] || {
+    log_error "Prompt file not found: $prompt_file"
+    return 1
+  }
+
+  local prompt
+  prompt=$(cat "$prompt_file")
+
+  # Substitute placeholders
+  prompt="${prompt//\{\{TASK_FILE\}\}/$task_file}"
+  prompt="${prompt//\{\{TASK_NAME\}\}/$task_name}"
+
+  echo "$prompt"
+}
+
+# Run a specific agent for a task
+# Usage: run_agent "agent_type" "task_file"
+# Returns: 0 on success, 1 on failure, 2 if needs human
+run_agent() {
+  local agent_type="$1"
+  local task_file="$2"
+
+  [[ -f "$task_file" ]] || {
+    log_error "Task file not found: $task_file"
+    return 1
+  }
+
+  local task_name
+  task_name=$(parse_task_field "$task_file" "task_name")
+  local task_num
+  task_num=$(parse_task_field "$task_file" "task_number")
+
+  # Map agent type to prompt file and subtask name
+  local prompt_file=""
+  local subtask_name=""
+  local next_agent_on_success=""
+
+  case "$agent_type" in
+    research)
+      prompt_file="${SCRIPT_DIR}/prompts/research.txt"
+      subtask_name="Research"
+      next_agent_on_success="implement"
+      ;;
+    implement)
+      prompt_file="${SCRIPT_DIR}/prompts/implement.txt"
+      subtask_name="Implementation"
+      next_agent_on_success="test-typecheck"
+      ;;
+    test-typecheck)
+      prompt_file="${SCRIPT_DIR}/prompts/test-typecheck.txt"
+      subtask_name="Test: Type Check"
+      next_agent_on_success="test-terminal"
+      ;;
+    test-terminal)
+      prompt_file="${SCRIPT_DIR}/prompts/test-terminal.txt"
+      subtask_name="Test: Terminal Errors"
+      next_agent_on_success="test-browser"
+      ;;
+    test-browser)
+      prompt_file="${SCRIPT_DIR}/prompts/test-browser.txt"
+      subtask_name="Test: Browser"
+      next_agent_on_success="test-automated"
+      ;;
+    test-automated)
+      prompt_file="${SCRIPT_DIR}/prompts/test-automated.txt"
+      subtask_name="Test: Automated (Playwright)"
+      next_agent_on_success="none"  # Final agent marks task complete
+      ;;
+    *)
+      log_error "Unknown agent type: $agent_type"
+      return 1
+      ;;
+  esac
+
+  # Get current attempts
+  local current_attempts
+  current_attempts=$(get_subtask_attempts "$task_file" "$subtask_name")
+  local new_attempts=$((current_attempts + 1))
+
+  # Check if max attempts reached
+  if [[ $new_attempts -gt 5 ]]; then
+    log_warn "Max attempts (5) reached for $subtask_name"
+    return 2
+  fi
+
+  # Prepare the prompt
+  local prompt
+  prompt=$(prepare_prompt "$prompt_file" "$task_file" "$task_name") || return 1
+
+  # Update subtask to In Progress
+  update_subtask_status "$task_file" "$subtask_name" "In Progress" "$new_attempts"
+
+  log_info "Running $agent_type agent for task $task_num: $task_name (attempt $new_attempts/5)"
+
+  # Run the AI agent
+  local tmpfile
+  tmpfile=$(mktemp)
+
+  # Start progress monitor
+  local start_time
+  start_time=$(date +%s)
+  current_step="$agent_type"
+
+  # Run AI command
+  run_ai_command "$prompt" "$tmpfile"
+
+  # Start progress monitor in background
+  monitor_progress "$tmpfile" "${task_name:0:40}" &
+  monitor_pid=$!
+
+  # Wait for AI to finish
+  wait "$ai_pid" 2>/dev/null || true
+
+  # Stop the monitor
+  kill "$monitor_pid" 2>/dev/null || true
+  wait "$monitor_pid" 2>/dev/null || true
+  monitor_pid=""
+
+  # Clear the progress line
+  tput cr 2>/dev/null || printf "\r"
+  tput el 2>/dev/null || true
+
+  # Read result
+  local result
+  result=$(cat "$tmpfile" 2>/dev/null || echo "")
+  rm -f "$tmpfile"
+
+  # Check for empty response
+  if [[ -z "$result" ]]; then
+    log_error "Empty response from AI"
+    update_subtask_status "$task_file" "$subtask_name" "Failed" "$new_attempts"
+    return 1
+  fi
+
+  # Check for API errors
+  local error_msg
+  if ! error_msg=$(check_for_errors "$result"); then
+    log_error "API error: $error_msg"
+    update_subtask_status "$task_file" "$subtask_name" "Failed" "$new_attempts"
+    return 1
+  fi
+
+  # Parse the result
+  local parsed
+  parsed=$(parse_ai_result "$result")
+  local response
+  response=$(echo "$parsed" | sed '/^---TOKENS---$/,$d')
+
+  # Show response summary
+  local elapsed=$(($(date +%s) - start_time))
+  printf "  ${GREEN}✓${RESET} %-16s │ %s ${DIM}[%ds]${RESET}\n" "Done" "${task_name:0:40}" "$elapsed"
+
+  # Enforce line limit on task file
+  enforce_task_line_limit "$task_file" 150
+
+  # The AI agent should have updated the task file with its results
+  # Check the new next_agent value to determine success
+  local new_next_agent
+  new_next_agent=$(parse_task_field "$task_file" "next_agent")
+  local new_status
+  new_status=$(parse_task_field "$task_file" "status")
+
+  # Check if task completed
+  if [[ "$new_status" == "Complete" ]]; then
+    log_success "Task $task_num completed!"
+    check_waiting_tasks "$task_num"
+    return 0
+  fi
+
+  # Check if needs human
+  if [[ "$new_status" == "Needs-Human" ]]; then
+    return 2
+  fi
+
+  # Success if next_agent moved forward
+  return 0
+}
+
+# Run research agent
+run_research_agent() {
+  local task_file="$1"
+  run_agent "research" "$task_file"
+}
+
+# Run implementation agent
+run_implement_agent() {
+  local task_file="$1"
+  run_agent "implement" "$task_file"
+}
+
+# Run type check agent
+run_typecheck_agent() {
+  local task_file="$1"
+  run_agent "test-typecheck" "$task_file"
+}
+
+# Run terminal error agent
+run_terminal_agent() {
+  local task_file="$1"
+  run_agent "test-terminal" "$task_file"
+}
+
+# Run browser agent
+run_browser_agent() {
+  local task_file="$1"
+  run_agent "test-browser" "$task_file"
+}
+
+# Run automated test agent
+run_automated_agent() {
+  local task_file="$1"
+  run_agent "test-automated" "$task_file"
+}
+
+# Dispatch to the appropriate agent based on next_agent field
+# Usage: dispatch_agent "task_file"
+# Returns: 0 on success, 1 on failure, 2 if needs human, 3 if complete
+dispatch_agent() {
+  local task_file="$1"
+
+  [[ -f "$task_file" ]] || {
+    log_error "Task file not found: $task_file"
+    return 1
+  }
+
+  local next_agent
+  next_agent=$(parse_task_field "$task_file" "next_agent")
+  local status
+  status=$(parse_task_field "$task_file" "status")
+
+  # Check if task is already complete
+  if [[ "$status" == "Complete" ]]; then
+    log_info "Task already complete"
+    return 3
+  fi
+
+  # Check if needs human
+  if [[ "$status" == "Needs-Human" ]]; then
+    log_warn "Task needs human intervention"
+    return 2
+  fi
+
+  # Check if waiting
+  if [[ "$status" == Waiting* ]]; then
+    log_info "Task is waiting on another task"
+    return 1
+  fi
+
+  # Check if no agent needed
+  if [[ "$next_agent" == "none" ]] || [[ -z "$next_agent" ]]; then
+    log_info "No next agent specified"
+    return 3
+  fi
+
+  # Dispatch to the appropriate agent
+  case "$next_agent" in
+    research)
+      run_research_agent "$task_file"
+      ;;
+    implement)
+      run_implement_agent "$task_file"
+      ;;
+    test-typecheck)
+      run_typecheck_agent "$task_file"
+      ;;
+    test-terminal)
+      run_terminal_agent "$task_file"
+      ;;
+    test-browser)
+      run_browser_agent "$task_file"
+      ;;
+    test-automated)
+      run_automated_agent "$task_file"
+      ;;
+    *)
+      log_error "Unknown agent type: $next_agent"
+      return 1
+      ;;
+  esac
+}
+
+# Mark a task as needs-human and rename file
+# Usage: mark_task_needs_human "task_file" "subtask_name"
+mark_task_needs_human() {
+  local task_file="$1"
+  local subtask_name="$2"
+
+  [[ -f "$task_file" ]] || return 1
+
+  local task_num
+  task_num=$(parse_task_field "$task_file" "task_number")
+
+  # Update status
+  update_task_field "$task_file" "status" "Needs-Human"
+
+  # Rename file with prefix
+  local new_path
+  new_path=$(rename_task_with_status "$task_file" "[Needs-Human]")
+
+  # Show purple warning
+  echo ""
+  echo "${MAGENTA}${BOLD}⚠️  NEEDS HUMAN: Task $task_num - Subtask: $subtask_name (5/5 failed)${RESET}"
+  echo "${MAGENTA}    Edit the task file and remove [Needs-Human] prefix to resume${RESET}"
+  echo ""
+
+  echo "$new_path"
+}
+
+# ============================================
 # TASK SOURCES - MARKDOWN
 # ============================================
 

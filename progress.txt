@@ -175,3 +175,47 @@ Added comprehensive functions to `ralphy.sh` for managing task files in the `tas
 - Added 17 new tests to `test_prompts.sh` for test-automated.txt
 - Tests verify: file existence, placeholders, Playwright instructions, write tests instructions, output requirements, failure handling, auto-detect, test patterns, scenarios coverage, final step handling
 - All 148 tests pass (48 task folder + 100 prompt tests)
+
+## 2026-01-19: Implemented 6 agent runner functions
+
+### Completed Task: Implement 6 agent runner functions that read/update task files
+
+Added comprehensive agent runner functions to `ralphy.sh` for running specialized agents:
+
+**Core Functions:**
+- `get_subtask_attempts()` - Get current attempt count for a subtask
+- `prepare_prompt()` - Load and substitute placeholders in prompt files
+- `run_agent()` - Core function to run any agent type with proper state management
+- `run_research_agent()` - Run the research agent
+- `run_implement_agent()` - Run the implementation agent
+- `run_typecheck_agent()` - Run the type check agent
+- `run_terminal_agent()` - Run the terminal error agent
+- `run_browser_agent()` - Run the browser agent
+- `run_automated_agent()` - Run the automated test agent
+- `dispatch_agent()` - Dispatch to appropriate agent based on next_agent field
+- `mark_task_needs_human()` - Mark task as needing human intervention
+
+**Agent Workflow:**
+- Each agent reads task file and extracts task info
+- Loads corresponding prompt from prompts/ folder
+- Substitutes {{TASK_FILE}} and {{TASK_NAME}} placeholders
+- Updates subtask status to "In Progress" with incremented attempts
+- Runs AI with prepared prompt
+- AI updates task file with results and sets next_agent
+- Enforces 150-line limit on task files
+- Handles completion, needs-human, and failure states
+
+**Agent Type Mapping:**
+| Agent Type | Prompt File | Subtask Name | Next on Success |
+|------------|-------------|--------------|-----------------|
+| research | research.txt | Research | implement |
+| implement | implement.txt | Implementation | test-typecheck |
+| test-typecheck | test-typecheck.txt | Test: Type Check | test-terminal |
+| test-terminal | test-terminal.txt | Test: Terminal Errors | test-browser |
+| test-browser | test-browser.txt | Test: Browser | test-automated |
+| test-automated | test-automated.txt | Test: Automated (Playwright) | none (complete) |
+
+**Testing:**
+- Created comprehensive test suite in `test_agent_runners.sh`
+- 53 tests covering all agent runner functions
+- All 201 tests pass (48 task folder + 100 prompt + 53 agent runner)
