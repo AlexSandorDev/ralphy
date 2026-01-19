@@ -66,8 +66,8 @@ Replace shared `progress.txt` with individual task files in `tasks/` folder. Eac
 ## Tasks
 
 - [x] Create tasks/ folder management functions
-- [ ] Implement task file CRUD (create, parse, update, rename with status prefix)
-- [ ] Create prompts/research.txt with Context7 MCP instructions
+- [x] Implement task file CRUD (create, parse, update, rename with status prefix)
+- [x] Create prompts/research.txt with Context7 MCP instructions
 - [ ] Create prompts/implement.txt (document reasoning, not just changes)
 - [ ] Create prompts/test-typecheck.txt
 - [ ] Create prompts/test-terminal.txt (start dev server, check errors)

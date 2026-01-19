@@ -39,3 +39,23 @@ Added comprehensive functions to `ralphy.sh` for managing task files in the `tas
 - Created comprehensive test suite in `test_tasks_folder.sh`
 - 48 tests covering all functions
 - All tests pass
+
+## 2026-01-19: Created prompts/research.txt with Context7 MCP instructions
+
+### Completed Tasks:
+1. **Implement task file CRUD** - Confirmed already complete (was implemented alongside tasks/ folder management)
+2. **Create prompts/research.txt** - Created Research Agent prompt
+
+**prompts/research.txt Features:**
+- Template placeholders: `{{TASK_FILE}}`, `{{TASK_NAME}}`
+- Codebase exploration instructions (search patterns, find related files)
+- Context7 MCP usage examples for external library documentation:
+  - `resolve-library-id` to find library IDs
+  - `query-docs` to fetch documentation
+- Output requirements (update task file Research section, set Next Agent to "implement")
+- Clear rules: NO implementation code, only gather and document information
+
+**Testing:**
+- Created `test_prompts.sh` with 18 tests for prompt files
+- Tests verify: file existence, required placeholders, Context7 instructions, output requirements
+- All 66 tests pass (48 task folder + 18 prompt tests)
