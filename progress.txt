@@ -1,0 +1,41 @@
+## 2026-01-19: Implemented tasks/ folder management functions
+
+### Completed Task: Create tasks/ folder management functions
+
+Added comprehensive functions to `ralphy.sh` for managing task files in the `tasks/` folder:
+
+**Core Functions:**
+- `init_tasks_folder()` - Creates tasks/ folder if it doesn't exist
+- `get_next_task_number()` - Generates sequential 3-digit task numbers (001, 002, etc.)
+- `slugify_task_name()` - Converts task names to filename-safe slugs
+- `create_task_file()` - Creates new task files with the PRD-specified template
+- `get_task_file()` - Finds task file by number, handling status prefixes
+- `parse_task_field()` - Extracts fields (status, next_agent, task_name, task_number)
+- `get_task_status()` - Gets task status by task number
+- `update_task_field()` - Updates status or next_agent fields
+- `update_subtask_status()` - Updates subtask status and attempt counts
+- `rename_task_with_status()` - Adds/removes status prefixes like [Needs-Human]
+- `list_task_files()` - Lists all task files sorted by number
+- `get_next_pending_task_file()` - Gets next actionable task
+- `count_tasks_by_status()` - Counts tasks by status type
+- `enforce_task_line_limit()` - Enforces 150-line limit on task files
+- `check_waiting_tasks()` - Unblocks tasks waiting on a completed task
+
+**Task File Format:**
+```markdown
+# Task 001: [Name]
+## Status: In Progress | Needs-Human | Waiting on Task X | Complete
+## Next Agent: research | implement | test-typecheck | test-terminal | test-browser | test-automated
+
+### Research — Status: Pending | Attempts: 0/5
+### Implementation — Status: Pending | Attempts: 0/5
+### Test: Type Check — Status: Pending | Attempts: 0/5
+### Test: Terminal Errors — Status: Pending | Attempts: 0/5
+### Test: Browser — Status: Pending | Attempts: 0/5
+### Test: Automated (Playwright) — Status: Pending | Attempts: 0/5
+```
+
+**Testing:**
+- Created comprehensive test suite in `test_tasks_folder.sh`
+- 48 tests covering all functions
+- All tests pass

@@ -23,6 +23,7 @@ MAX_ITERATIONS=0  # 0 = unlimited
 MAX_RETRIES=3
 RETRY_DELAY=5
 VERBOSE=false
+USE_CHROME=false  # Enable browser automation with --chrome
 
 # Git branch options
 BRANCH_PER_TASK=false
@@ -148,12 +149,14 @@ ${BOLD}PRD SOURCE OPTIONS:${RESET}
   --github-label TAG  Filter GitHub issues by label
 
 ${BOLD}OTHER OPTIONS:${RESET}
+  --chrome            Enable browser automation (Claude Code only)
   -v, --verbose       Show debug output
   -h, --help          Show this help
   --version           Show version number
 
 ${BOLD}EXAMPLES:${RESET}
   ./ralphy.sh                              # Run with Claude Code
+  ./ralphy.sh --chrome                     # With browser automation for testing
   ./ralphy.sh --codex                      # Run with Codex CLI
   ./ralphy.sh --opencode                   # Run with OpenCode
   ./ralphy.sh --cursor                     # Run with Cursor agent
@@ -174,6 +177,10 @@ ${BOLD}PRD FORMATS:${RESET}
 
   GitHub Issues:
     Uses open issues from the specified repository
+
+${BOLD}AUTO PRD GENERATION:${RESET}
+  If no PRD.md file exists, Ralphy will launch an interactive Claude session
+  to help you create one through guided questions about your project.
 
 EOF
 }
@@ -281,6 +288,10 @@ parse_args() {
         VERBOSE=true
         shift
         ;;
+      --chrome)
+        USE_CHROME=true
+        shift
+        ;;
       -h|--help)
         show_help
         exit 0
@@ -299,6 +310,46 @@ parse_args() {
 }
 
 # ============================================
+# PRD GENERATION
+# ============================================
+
+generate_prd() {
+  # Check if Claude is available for PRD generation
+  if ! command -v claude &>/dev/null; then
+    log_error "Claude Code CLI is required for PRD generation."
+    log_error "Install from https://github.com/anthropics/claude-code"
+    log_error "Or create $PRD_FILE manually with tasks formatted as: - [ ] Task description"
+    exit 1
+  fi
+
+  log_info "No PRD file found. Starting interactive PRD creation..."
+  echo ""
+  echo "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo "${BOLD}PRD Creation Assistant${RESET}"
+  echo "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo ""
+  echo ""
+  echo "${CYAN}${BOLD}>>> Type:  /prd${RESET}"
+  echo ""
+  echo "${DIM}This starts the PRD creation wizard.${RESET}"
+  echo "${DIM}Answer the questions, then type 'exit' when done.${RESET}"
+  echo ""
+
+  # Run Claude interactively
+  claude
+
+  # Check if PRD was created
+  if [[ ! -f "$PRD_FILE" ]]; then
+    log_error "PRD file was not created. Please try again or create $PRD_FILE manually."
+    exit 1
+  fi
+
+  echo ""
+  log_success "PRD.md created successfully!"
+  echo ""
+}
+
+# ============================================
 # PRE-FLIGHT CHECKS
 # ============================================
 
@@ -309,8 +360,7 @@ check_requirements() {
   case "$PRD_SOURCE" in
     markdown)
       if [[ ! -f "$PRD_FILE" ]]; then
-        log_error "$PRD_FILE not found in current directory"
-        exit 1
+        generate_prd
       fi
       ;;
     yaml)
@@ -444,6 +494,334 @@ cleanup() {
       log_info "Branches created: ${task_branches[*]}"
     fi
   fi
+}
+
+# ============================================
+# TASKS FOLDER MANAGEMENT
+# ============================================
+
+TASKS_DIR="tasks"
+
+# Initialize tasks folder if it doesn't exist
+init_tasks_folder() {
+  if [[ ! -d "$TASKS_DIR" ]]; then
+    mkdir -p "$TASKS_DIR"
+    log_debug "Created tasks folder: $TASKS_DIR"
+  fi
+}
+
+# Generate the next task number (e.g., 001, 002, etc.)
+get_next_task_number() {
+  local max_num=0
+
+  if [[ -d "$TASKS_DIR" ]]; then
+    for file in "$TASKS_DIR"/*.md; do
+      [[ -f "$file" ]] || continue
+      local basename
+      basename=$(basename "$file")
+      # Extract number from filenames like "001-task-name.md" or "[Needs-Human] 001-task-name.md"
+      local num
+      num=$(echo "$basename" | grep -oE '[0-9]{3}' | head -1)
+      if [[ -n "$num" ]] && [[ "$num" -gt "$max_num" ]]; then
+        max_num=$num
+      fi
+    done
+  fi
+
+  printf "%03d" $((max_num + 1))
+}
+
+# Slugify task name for filename (lowercase, dashes, max 50 chars)
+slugify_task_name() {
+  local name="$1"
+  echo "$name" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g' | sed -E 's/^-|-$//g' | cut -c1-50
+}
+
+# Create a new task file
+# Usage: create_task_file "Task description"
+# Returns: path to the created task file
+create_task_file() {
+  local task_name="$1"
+  local depends_on="${2:-}"  # Optional: task number this depends on
+
+  init_tasks_folder
+
+  local task_num
+  task_num=$(get_next_task_number)
+  local slug
+  slug=$(slugify_task_name "$task_name")
+  local filename="${task_num}-${slug}.md"
+  local filepath="${TASKS_DIR}/${filename}"
+
+  local status="In Progress"
+  local next_agent="research"
+
+  # If depends on another task, check if it's complete
+  if [[ -n "$depends_on" ]]; then
+    local dep_status
+    dep_status=$(get_task_status "$depends_on")
+    if [[ "$dep_status" != "Complete" ]]; then
+      status="Waiting on Task ${depends_on}"
+      filename="[Waiting on Task ${depends_on}] ${filename}"
+      filepath="${TASKS_DIR}/${filename}"
+    fi
+  fi
+
+  # Create the task file with template
+  cat > "$filepath" << EOF
+# Task ${task_num}: ${task_name}
+## Status: ${status}
+## Next Agent: ${next_agent}
+
+### Research — Status: Pending | Attempts: 0/5
+[Relevant files, patterns discovered, library docs from Context7]
+
+### Implementation — Status: Pending | Attempts: 0/5
+[Reasoning and thinking process, choices considered, why alternatives were rejected, architectural decisions - documentation style]
+
+### Test: Type Check — Status: Pending | Attempts: 0/5
+
+### Test: Terminal Errors — Status: Pending | Attempts: 0/5
+
+### Test: Browser — Status: Pending | Attempts: 0/5
+
+### Test: Automated (Playwright) — Status: Pending | Attempts: 0/5
+EOF
+
+  log_debug "Created task file: $filepath"
+  echo "$filepath"
+}
+
+# Get task file path by task number (handles status prefixes)
+# Usage: get_task_file "001"
+get_task_file() {
+  local task_num="$1"
+
+  if [[ ! -d "$TASKS_DIR" ]]; then
+    return 1
+  fi
+
+  # Find file matching the task number (may have status prefix)
+  for file in "$TASKS_DIR"/*"${task_num}"-*.md; do
+    [[ -f "$file" ]] && echo "$file" && return 0
+  done
+
+  return 1
+}
+
+# Parse a task file and extract field value
+# Usage: parse_task_field "filepath" "field_name"
+parse_task_field() {
+  local filepath="$1"
+  local field="$2"
+
+  [[ -f "$filepath" ]] || return 1
+
+  case "$field" in
+    "status")
+      grep -m1 '^## Status:' "$filepath" | sed 's/^## Status:[[:space:]]*//'
+      ;;
+    "next_agent")
+      grep -m1 '^## Next Agent:' "$filepath" | sed 's/^## Next Agent:[[:space:]]*//'
+      ;;
+    "task_name")
+      grep -m1 '^# Task [0-9]*:' "$filepath" | sed 's/^# Task [0-9]*:[[:space:]]*//'
+      ;;
+    "task_number")
+      basename "$filepath" | grep -oE '[0-9]{3}' | head -1
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+# Get the status of a task by its number
+get_task_status() {
+  local task_num="$1"
+  local filepath
+  filepath=$(get_task_file "$task_num") || return 1
+  parse_task_field "$filepath" "status"
+}
+
+# Update a field in a task file
+# Usage: update_task_field "filepath" "field_name" "new_value"
+update_task_field() {
+  local filepath="$1"
+  local field="$2"
+  local value="$3"
+
+  [[ -f "$filepath" ]] || return 1
+
+  case "$field" in
+    "status")
+      sed -i.bak "s/^## Status:.*$/## Status: ${value}/" "$filepath"
+      rm -f "${filepath}.bak"
+      ;;
+    "next_agent")
+      sed -i.bak "s/^## Next Agent:.*$/## Next Agent: ${value}/" "$filepath"
+      rm -f "${filepath}.bak"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+# Update subtask status and attempts
+# Usage: update_subtask_status "filepath" "subtask_name" "status" "attempts"
+update_subtask_status() {
+  local filepath="$1"
+  local subtask="$2"
+  local status="$3"
+  local attempts="$4"
+
+  [[ -f "$filepath" ]] || return 1
+
+  # Escape special characters in subtask name for sed
+  local escaped_subtask
+  escaped_subtask=$(printf '%s\n' "$subtask" | sed 's/[[\.*^$/]/\\&/g')
+
+  # Update the subtask line
+  sed -i.bak "s/^### ${escaped_subtask} — Status:.*$/### ${subtask} — Status: ${status} | Attempts: ${attempts}\/5/" "$filepath"
+  rm -f "${filepath}.bak"
+}
+
+# Rename task file with status prefix
+# Usage: rename_task_with_status "filepath" "new_status_prefix"
+# Example: rename_task_with_status "tasks/001-foo.md" "[Needs-Human]"
+rename_task_with_status() {
+  local filepath="$1"
+  local prefix="$2"  # e.g., "[Needs-Human]" or "[Waiting on Task 001]" or "" to remove
+
+  [[ -f "$filepath" ]] || return 1
+
+  local dir
+  dir=$(dirname "$filepath")
+  local basename
+  basename=$(basename "$filepath")
+
+  # Remove any existing status prefix
+  local clean_name
+  clean_name=$(echo "$basename" | sed -E 's/^\[.*\][[:space:]]*//')
+
+  local new_name
+  if [[ -n "$prefix" ]]; then
+    new_name="${prefix} ${clean_name}"
+  else
+    new_name="$clean_name"
+  fi
+
+  local new_filepath="${dir}/${new_name}"
+
+  if [[ "$filepath" != "$new_filepath" ]]; then
+    mv "$filepath" "$new_filepath"
+    log_debug "Renamed task file: $basename -> $new_name"
+  fi
+
+  echo "$new_filepath"
+}
+
+# List all task files (sorted by number)
+list_task_files() {
+  [[ -d "$TASKS_DIR" ]] || return 0
+
+  # List and sort by the numeric portion
+  find "$TASKS_DIR" -maxdepth 1 -name '*.md' -type f 2>/dev/null | sort -t'/' -k2 -V
+}
+
+# Get the next task file that needs work (not Complete, not Needs-Human, not Waiting)
+get_next_pending_task_file() {
+  local file status
+
+  while IFS= read -r file; do
+    [[ -f "$file" ]] || continue
+    status=$(parse_task_field "$file" "status")
+
+    # Skip completed tasks
+    [[ "$status" == "Complete" ]] && continue
+
+    # Skip tasks that need human intervention
+    [[ "$status" == "Needs-Human" ]] && continue
+
+    # Skip waiting tasks (check both status field and filename prefix)
+    [[ "$status" == Waiting* ]] && continue
+    [[ "$(basename "$file")" == "[Waiting"* ]] && continue
+
+    echo "$file"
+    return 0
+  done < <(list_task_files)
+
+  return 1
+}
+
+# Count tasks by status
+count_tasks_by_status() {
+  local target_status="$1"
+  local count=0
+  local file status
+
+  while IFS= read -r file; do
+    [[ -f "$file" ]] || continue
+    status=$(parse_task_field "$file" "status")
+
+    if [[ "$target_status" == "pending" ]]; then
+      # Count non-complete tasks
+      [[ "$status" != "Complete" ]] && ((count++))
+    elif [[ "$target_status" == "complete" ]]; then
+      [[ "$status" == "Complete" ]] && ((count++))
+    elif [[ "$target_status" == "needs-human" ]]; then
+      [[ "$status" == "Needs-Human" ]] && ((count++))
+    elif [[ "$target_status" == "waiting" ]]; then
+      [[ "$status" == Waiting* ]] && ((count++))
+    fi
+  done < <(list_task_files)
+
+  echo "$count"
+}
+
+# Enforce 150-line limit on task file by truncating old content
+enforce_task_line_limit() {
+  local filepath="$1"
+  local max_lines="${2:-150}"
+
+  [[ -f "$filepath" ]] || return 1
+
+  local line_count
+  line_count=$(wc -l < "$filepath")
+
+  if [[ "$line_count" -gt "$max_lines" ]]; then
+    # Keep the header (first 6 lines with Status/Next Agent) and trim content sections
+    local header
+    header=$(head -6 "$filepath")
+
+    # Get the last (max_lines - 6) lines of content
+    local content
+    content=$(tail -n +7 "$filepath" | tail -n $((max_lines - 6)))
+
+    # Rewrite file
+    echo "$header" > "$filepath"
+    echo "$content" >> "$filepath"
+
+    log_debug "Truncated task file to $max_lines lines: $filepath"
+  fi
+}
+
+# Check if any tasks are waiting on a given task number
+check_waiting_tasks() {
+  local completed_task_num="$1"
+
+  [[ -d "$TASKS_DIR" ]] || return 0
+
+  for file in "$TASKS_DIR"/\[Waiting\ on\ Task\ "${completed_task_num}"\]*.md; do
+    [[ -f "$file" ]] || continue
+
+    # Remove the waiting prefix and update status
+    local new_filepath
+    new_filepath=$(rename_task_with_status "$file" "")
+    update_task_field "$new_filepath" "status" "In Progress"
+    log_info "Unblocked task: $(basename "$new_filepath")"
+  done
 }
 
 # ============================================
@@ -798,83 +1176,117 @@ notify_error() {
 # PROMPT BUILDER
 # ============================================
 
+# Get the directory where ralphy.sh is located
+get_script_dir() {
+  local source="${BASH_SOURCE[0]}"
+  while [[ -L "$source" ]]; do
+    local dir="$(cd -P "$(dirname "$source")" && pwd)"
+    source="$(readlink "$source")"
+    [[ $source != /* ]] && source="$dir/$source"
+  done
+  cd -P "$(dirname "$source")" && pwd
+}
+
+SCRIPT_DIR="$(get_script_dir)"
+
 build_prompt() {
   local task_override="${1:-}"
   local prompt=""
+  local step=2
+  local tests_steps=""
+  local lint_steps=""
+  local tests_warning=""
+  local lint_warning=""
+  local completion_step=""
   
-  # Add context based on PRD source
+  # Build test steps
+  if [[ "$SKIP_TESTS" == false ]]; then
+    tests_steps="$step. Write tests for the feature.
+$((step+1)). Run tests and ensure they pass before proceeding."
+    tests_warning="Do not proceed if tests fail."
+    step=$((step+2))
+  fi
+
+  # Build lint steps
+  if [[ "$SKIP_LINT" == false ]]; then
+    lint_steps="$step. Run linting and ensure it passes before proceeding."
+    lint_warning="Do not proceed if linting fails."
+    step=$((step+1))
+  fi
+
+  # Build completion step based on PRD source
   case "$PRD_SOURCE" in
     markdown)
-      prompt="@${PRD_FILE} @progress.txt"
+      completion_step="$step. Update the PRD to mark the task as complete (change '- [ ]' to '- [x]')."
       ;;
     yaml)
-      prompt="@${PRD_FILE} @progress.txt"
+      completion_step="$step. Update ${PRD_FILE} to mark the task as completed (set completed: true)."
       ;;
     github)
-      # For GitHub issues, we include the issue body
-      local issue_body=""
-      if [[ -n "$task_override" ]]; then
-        issue_body=$(get_github_issue_body "$task_override")
-      fi
-      prompt="Task from GitHub Issue: $task_override
+      completion_step="$step. The task will be marked complete automatically. Just note the completion in progress.txt."
+      ;;
+  esac
+  
+  local progress_step=$((step+1))
+  local commit_step=$((step+2))
+
+  # Handle GitHub issues specially
+  if [[ "$PRD_SOURCE" == "github" ]]; then
+    local issue_body=""
+    if [[ -n "$task_override" ]]; then
+      issue_body=$(get_github_issue_body "$task_override")
+    fi
+    prompt="Task from GitHub Issue: $task_override
 
 Issue Description:
 $issue_body
 
-@progress.txt"
-      ;;
-  esac
-  
-  prompt="$prompt
-1. Find the highest-priority incomplete task and implement it."
+@progress.txt
 
-  local step=2
-  
-  if [[ "$SKIP_TESTS" == false ]]; then
-    prompt="$prompt
-$step. Write tests for the feature.
-$((step+1)). Run tests and ensure they pass before proceeding."
-    step=$((step+2))
-  fi
+1. Find the highest-priority incomplete task and implement it.
+${tests_steps}
+${lint_steps}
+${completion_step}
+${progress_step}. Append your progress to progress.txt.
+${commit_step}. Commit your changes with a descriptive message.
 
-  if [[ "$SKIP_LINT" == false ]]; then
-    prompt="$prompt
-$step. Run linting and ensure it passes before proceeding."
-    step=$((step+1))
-  fi
+ONLY WORK ON A SINGLE TASK.
+${tests_warning}
+${lint_warning}
 
-  # Adjust completion step based on PRD source
-  case "$PRD_SOURCE" in
-    markdown)
-      prompt="$prompt
-$step. Update the PRD to mark the task as complete (change '- [ ]' to '- [x]')."
-      ;;
-    yaml)
-      prompt="$prompt
-$step. Update ${PRD_FILE} to mark the task as completed (set completed: true)."
-      ;;
-    github)
-      prompt="$prompt
-$step. The task will be marked complete automatically. Just note the completion in progress.txt."
-      ;;
-  esac
-  
-  step=$((step+1))
-  
-  prompt="$prompt
-$step. Append your progress to progress.txt.
-$((step+1)). Commit your changes with a descriptive message.
-ONLY WORK ON A SINGLE TASK."
-
-  if [[ "$SKIP_TESTS" == false ]]; then
-    prompt="$prompt Do not proceed if tests fail."
-  fi
-  if [[ "$SKIP_LINT" == false ]]; then
-    prompt="$prompt Do not proceed if linting fails."
-  fi
-
-  prompt="$prompt
 If ALL tasks in the PRD are complete, output <promise>COMPLETE</promise>."
+  else
+    # Load from template file if it exists
+    local template_file="${SCRIPT_DIR}/prompts/sequential.txt"
+    if [[ -f "$template_file" ]]; then
+      prompt=$(cat "$template_file")
+      # Replace placeholders
+      prompt="${prompt//\{\{PRD_FILE\}\}/$PRD_FILE}"
+      prompt="${prompt//\{\{TESTS_STEPS\}\}/$tests_steps}"
+      prompt="${prompt//\{\{LINT_STEPS\}\}/$lint_steps}"
+      prompt="${prompt//\{\{COMPLETION_STEP\}\}/$completion_step}"
+      prompt="${prompt//\{\{PROGRESS_STEP\}\}/$progress_step}"
+      prompt="${prompt//\{\{COMMIT_STEP\}\}/$commit_step}"
+      prompt="${prompt//\{\{TESTS_WARNING\}\}/$tests_warning}"
+      prompt="${prompt//\{\{LINT_WARNING\}\}/$lint_warning}"
+    else
+      # Fallback to inline prompt
+      prompt="@${PRD_FILE} @progress.txt
+
+1. Find the highest-priority incomplete task and implement it.
+${tests_steps}
+${lint_steps}
+${completion_step}
+${progress_step}. Append your progress to progress.txt.
+${commit_step}. Commit your changes with a descriptive message.
+
+ONLY WORK ON A SINGLE TASK.
+${tests_warning}
+${lint_warning}
+
+If ALL tasks in the PRD are complete, output <promise>COMPLETE</promise>."
+    fi
+  fi
 
   echo "$prompt"
 }
@@ -910,9 +1322,12 @@ run_ai_command() {
       ;;
     *)
       # Claude Code: use existing approach
+      local chrome_flag=""
+      [[ "$USE_CHROME" == true ]] && chrome_flag="--chrome"
       claude --dangerously-skip-permissions \
         --verbose \
         --output-format stream-json \
+        $chrome_flag \
         -p "$prompt" > "$output_file" 2>&1 &
       ;;
   esac
@@ -1347,7 +1762,15 @@ run_parallel_agent() {
   touch "$worktree_dir/progress.txt"
   
   # Build prompt for this specific task
-  local prompt="You are working on a specific task. Focus ONLY on this task:
+  local prompt=""
+  local template_file="${SCRIPT_DIR}/prompts/parallel.txt"
+  
+  if [[ -f "$template_file" ]]; then
+    prompt=$(cat "$template_file")
+    prompt="${prompt//\{\{TASK_NAME\}\}/$task_name}"
+  else
+    # Fallback to inline prompt
+    prompt="You are working on a specific task. Focus ONLY on this task:
 
 TASK: $task_name
 
@@ -1359,6 +1782,7 @@ Instructions:
 
 Do NOT modify PRD.md or mark tasks complete - that will be handled separately.
 Focus only on implementing: $task_name"
+  fi
 
   # Temp file for AI output
   local tmpfile
@@ -1401,10 +1825,13 @@ Focus only on implementing: $task_name"
       *)
         (
           cd "$worktree_dir"
+          local chrome_flag=""
+          [[ "$USE_CHROME" == true ]] && chrome_flag="--chrome"
           claude --dangerously-skip-permissions \
             --verbose \
             -p "$prompt" \
-            --output-format stream-json
+            --output-format stream-json \
+            $chrome_flag
         ) > "$tmpfile" 2>>"$log_file"
         ;;
     esac
@@ -1520,7 +1947,7 @@ run_parallel_tasks() {
   log_info "Base branch: $BASE_BRANCH"
   
   # Export variables needed by subshell agents
-  export AI_ENGINE MAX_RETRIES RETRY_DELAY PRD_SOURCE PRD_FILE CREATE_PR PR_DRAFT
+  export AI_ENGINE MAX_RETRIES RETRY_DELAY PRD_SOURCE PRD_FILE CREATE_PR PR_DRAFT USE_CHROME SCRIPT_DIR
   
   local batch_num=0
   local completed_branches=()
@@ -2020,7 +2447,7 @@ main() {
 
   # Sequential main loop
   while true; do
-    ((iteration++))
+    iteration=$((iteration + 1))
     local result_code=0
     run_single_task "" "$iteration" || result_code=$?
     
