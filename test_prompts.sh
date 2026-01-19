@@ -154,6 +154,54 @@ test_implement_prompt_has_failure_handling() {
 }
 
 # ============================================
+# TEST-TYPECHECK PROMPT TESTS
+# ============================================
+
+test_typecheck_prompt_exists() {
+  echo "Test: test-typecheck.txt exists"
+  assert_file_exists "${PROMPTS_DIR}/test-typecheck.txt" "test-typecheck.txt exists"
+}
+
+test_typecheck_prompt_not_empty() {
+  echo "Test: test-typecheck.txt is not empty"
+  assert_file_not_empty "${PROMPTS_DIR}/test-typecheck.txt" "test-typecheck.txt has content"
+}
+
+test_typecheck_prompt_has_task_placeholders() {
+  echo "Test: test-typecheck.txt has required placeholders"
+  assert_file_contains "${PROMPTS_DIR}/test-typecheck.txt" "{{TASK_FILE}}" "Has TASK_FILE placeholder"
+  assert_file_contains "${PROMPTS_DIR}/test-typecheck.txt" "{{TASK_NAME}}" "Has TASK_NAME placeholder"
+}
+
+test_typecheck_prompt_has_tsc_command() {
+  echo "Test: test-typecheck.txt has tsc command"
+  assert_file_contains "${PROMPTS_DIR}/test-typecheck.txt" "tsc --noEmit" "Has tsc --noEmit command"
+}
+
+test_typecheck_prompt_has_output_requirements() {
+  echo "Test: test-typecheck.txt has output requirements"
+  assert_file_contains "${PROMPTS_DIR}/test-typecheck.txt" "Type Check.*Status.*Complete" "Has status update instruction"
+  assert_file_contains "${PROMPTS_DIR}/test-typecheck.txt" "Next Agent.*test-terminal" "Has next agent instruction"
+}
+
+test_typecheck_prompt_has_failure_handling() {
+  echo "Test: test-typecheck.txt has failure handling"
+  assert_file_contains "${PROMPTS_DIR}/test-typecheck.txt" "5 attempts" "Has 5 attempt limit reference"
+  assert_file_contains "${PROMPTS_DIR}/test-typecheck.txt" "Needs-Human" "Has Needs-Human reference"
+}
+
+test_typecheck_prompt_has_auto_detect() {
+  echo "Test: test-typecheck.txt has auto-detect instructions"
+  assert_file_contains "${PROMPTS_DIR}/test-typecheck.txt" "package.json" "Mentions package.json for command detection"
+  assert_file_contains "${PROMPTS_DIR}/test-typecheck.txt" "typecheck" "Has typecheck script name"
+}
+
+test_typecheck_prompt_references_implementation() {
+  echo "Test: test-typecheck.txt references implementation section"
+  assert_file_contains "${PROMPTS_DIR}/test-typecheck.txt" "Implementation" "References Implementation section"
+}
+
+# ============================================
 # SEQUENTIAL PROMPT TESTS
 # ============================================
 
@@ -209,6 +257,16 @@ test_implement_prompt_has_reasoning_requirements
 test_implement_prompt_has_output_requirements
 test_implement_prompt_reads_research
 test_implement_prompt_has_failure_handling
+
+# Test-typecheck prompt tests
+test_typecheck_prompt_exists
+test_typecheck_prompt_not_empty
+test_typecheck_prompt_has_task_placeholders
+test_typecheck_prompt_has_tsc_command
+test_typecheck_prompt_has_output_requirements
+test_typecheck_prompt_has_failure_handling
+test_typecheck_prompt_has_auto_detect
+test_typecheck_prompt_references_implementation
 
 # Sequential prompt tests
 test_sequential_prompt_exists

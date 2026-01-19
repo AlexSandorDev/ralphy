@@ -69,7 +69,7 @@ Replace shared `progress.txt` with individual task files in `tasks/` folder. Eac
 - [x] Implement task file CRUD (create, parse, update, rename with status prefix)
 - [x] Create prompts/research.txt with Context7 MCP instructions
 - [x] Create prompts/implement.txt (document reasoning, not just changes)
-- [ ] Create prompts/test-typecheck.txt
+- [x] Create prompts/test-typecheck.txt
 - [ ] Create prompts/test-terminal.txt (start dev server, check errors)
 - [ ] Create prompts/test-browser.txt (start server, test functionality via --chrome)
 - [ ] Create prompts/test-automated.txt (write Playwright tests, then run)

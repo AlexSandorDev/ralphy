@@ -81,3 +81,22 @@ Added comprehensive functions to `ralphy.sh` for managing task files in the `tas
 - Added 10 new tests to `test_prompts.sh` for implement.txt
 - Tests verify: file existence, placeholders, reasoning requirements, output requirements, research reading, failure handling
 - All 79 tests pass (48 task folder + 31 prompt tests)
+
+## 2026-01-19: Created prompts/test-typecheck.txt
+
+### Completed Task: Create prompts/test-typecheck.txt
+
+**prompts/test-typecheck.txt Features:**
+- Template placeholders: `{{TASK_FILE}}`, `{{TASK_NAME}}`
+- Instructions to run `tsc --noEmit` or project's configured type check command
+- Auto-detection of type check commands from package.json scripts
+- Instructions to analyze and fix type errors introduced by implementation
+- References Implementation section to understand what was changed
+- Output requirements (update task file Test: Type Check section, set Next Agent to "test-terminal")
+- Failure handling (5 attempts, Needs-Human marking)
+- Clear rules: fix type errors, don't modify logic; if logic changes needed, go back to implement
+
+**Testing:**
+- Added 11 new tests to `test_prompts.sh` for test-typecheck.txt
+- Tests verify: file existence, placeholders, tsc command, output requirements, failure handling, auto-detect instructions, implementation reference
+- All 91 tests pass (48 task folder + 43 prompt tests)
