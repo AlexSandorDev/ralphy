@@ -257,6 +257,73 @@ test_terminal_prompt_has_error_types() {
 }
 
 # ============================================
+# TEST-BROWSER PROMPT TESTS
+# ============================================
+
+test_browser_prompt_exists() {
+  echo "Test: test-browser.txt exists"
+  assert_file_exists "${PROMPTS_DIR}/test-browser.txt" "test-browser.txt exists"
+}
+
+test_browser_prompt_not_empty() {
+  echo "Test: test-browser.txt is not empty"
+  assert_file_not_empty "${PROMPTS_DIR}/test-browser.txt" "test-browser.txt has content"
+}
+
+test_browser_prompt_has_task_placeholders() {
+  echo "Test: test-browser.txt has required placeholders"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "{{TASK_FILE}}" "Has TASK_FILE placeholder"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "{{TASK_NAME}}" "Has TASK_NAME placeholder"
+}
+
+test_browser_prompt_has_chrome_instructions() {
+  echo "Test: test-browser.txt has browser automation instructions"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "browser automation" "Has browser automation instructions"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "\-\-chrome" "Has --chrome reference"
+}
+
+test_browser_prompt_has_dev_server_instructions() {
+  echo "Test: test-browser.txt has dev server instructions"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "dev server" "Has dev server instructions"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "Start.*dev server" "Has start dev server instruction"
+}
+
+test_browser_prompt_has_output_requirements() {
+  echo "Test: test-browser.txt has output requirements"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "Browser.*Status.*Complete" "Has status update instruction"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "Next Agent.*test-automated" "Has next agent instruction"
+}
+
+test_browser_prompt_has_failure_handling() {
+  echo "Test: test-browser.txt has failure handling"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "5 attempts" "Has 5 attempt limit reference"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "Needs-Human" "Has Needs-Human reference"
+}
+
+test_browser_prompt_has_console_check() {
+  echo "Test: test-browser.txt has console check instructions"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "console" "Mentions console"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "console error" "Has console error checking"
+}
+
+test_browser_prompt_references_implementation() {
+  echo "Test: test-browser.txt references implementation section"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "Implementation" "References Implementation section"
+}
+
+test_browser_prompt_has_auto_detect() {
+  echo "Test: test-browser.txt has auto-detect instructions"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "package.json" "Mentions package.json for command detection"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "dev.*start.*serve" "Has common dev script names"
+}
+
+test_browser_prompt_starts_own_server() {
+  echo "Test: test-browser.txt emphasizes starting own server"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "Start Your Own Dev Server" "Has own server instructions"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "You own this server" "Emphasizes owning server instance"
+}
+
+# ============================================
 # SEQUENTIAL PROMPT TESTS
 # ============================================
 
@@ -333,6 +400,19 @@ test_terminal_prompt_has_failure_handling
 test_terminal_prompt_has_auto_detect
 test_terminal_prompt_references_implementation
 test_terminal_prompt_has_error_types
+
+# Test-browser prompt tests
+test_browser_prompt_exists
+test_browser_prompt_not_empty
+test_browser_prompt_has_task_placeholders
+test_browser_prompt_has_chrome_instructions
+test_browser_prompt_has_dev_server_instructions
+test_browser_prompt_has_output_requirements
+test_browser_prompt_has_failure_handling
+test_browser_prompt_has_console_check
+test_browser_prompt_references_implementation
+test_browser_prompt_has_auto_detect
+test_browser_prompt_starts_own_server
 
 # Sequential prompt tests
 test_sequential_prompt_exists

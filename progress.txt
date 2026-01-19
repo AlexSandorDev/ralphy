@@ -120,3 +120,28 @@ Added comprehensive functions to `ralphy.sh` for managing task files in the `tas
 - Added 11 new tests to `test_prompts.sh` for test-terminal.txt
 - Tests verify: file existence, placeholders, dev server instructions, output requirements, failure handling, auto-detect instructions, implementation reference, error types
 - All 106 tests pass (48 task folder + 58 prompt tests)
+
+## 2026-01-19: Created prompts/test-browser.txt
+
+### Completed Task: Create prompts/test-browser.txt (start server, test functionality via --chrome)
+
+**prompts/test-browser.txt Features:**
+- Template placeholders: `{{TASK_FILE}}`, `{{TASK_NAME}}`
+- Instructions to start and manage its own dev server instance
+- Browser automation instructions using --chrome mode
+- Feature testing guidelines:
+  - Navigate to relevant pages
+  - Test user interactions (clicks, forms, etc.)
+  - Verify visual elements render correctly
+  - Check browser console for JavaScript errors
+- References Research and Implementation sections for context
+- Output requirements (update task file Test: Browser section, set Next Agent to "test-automated")
+- Failure handling (5 attempts, Needs-Human marking)
+- Auto-detection of dev server commands from package.json
+- Server lifecycle management (start, wait for ready, test, stop)
+- Common issues checklist: broken imports, missing APIs, routing, state management, CSS issues
+
+**Testing:**
+- Added 14 new tests to `test_prompts.sh` for test-browser.txt
+- Tests verify: file existence, placeholders, --chrome reference, dev server instructions, output requirements, failure handling, console checking, auto-detect instructions, own server emphasis
+- All 125 tests pass (48 task folder + 77 prompt tests)

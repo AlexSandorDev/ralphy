@@ -71,7 +71,7 @@ Replace shared `progress.txt` with individual task files in `tasks/` folder. Eac
 - [x] Create prompts/implement.txt (document reasoning, not just changes)
 - [x] Create prompts/test-typecheck.txt
 - [x] Create prompts/test-terminal.txt (start dev server, check errors)
-- [ ] Create prompts/test-browser.txt (start server, test functionality via --chrome)
+- [x] Create prompts/test-browser.txt (start server, test functionality via --chrome)
 - [ ] Create prompts/test-automated.txt (write Playwright tests, then run)
 - [ ] Implement 6 agent runner functions that read/update task files
 - [ ] Each agent outputs Next Agent field for loop to follow
