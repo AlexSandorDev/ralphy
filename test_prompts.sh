@@ -202,6 +202,61 @@ test_typecheck_prompt_references_implementation() {
 }
 
 # ============================================
+# TEST-TERMINAL PROMPT TESTS
+# ============================================
+
+test_terminal_prompt_exists() {
+  echo "Test: test-terminal.txt exists"
+  assert_file_exists "${PROMPTS_DIR}/test-terminal.txt" "test-terminal.txt exists"
+}
+
+test_terminal_prompt_not_empty() {
+  echo "Test: test-terminal.txt is not empty"
+  assert_file_not_empty "${PROMPTS_DIR}/test-terminal.txt" "test-terminal.txt has content"
+}
+
+test_terminal_prompt_has_task_placeholders() {
+  echo "Test: test-terminal.txt has required placeholders"
+  assert_file_contains "${PROMPTS_DIR}/test-terminal.txt" "{{TASK_FILE}}" "Has TASK_FILE placeholder"
+  assert_file_contains "${PROMPTS_DIR}/test-terminal.txt" "{{TASK_NAME}}" "Has TASK_NAME placeholder"
+}
+
+test_terminal_prompt_has_dev_server_command() {
+  echo "Test: test-terminal.txt has dev server instructions"
+  assert_file_contains "${PROMPTS_DIR}/test-terminal.txt" "dev server" "Has dev server instructions"
+  assert_file_contains "${PROMPTS_DIR}/test-terminal.txt" "npm run dev" "Has npm run dev command"
+}
+
+test_terminal_prompt_has_output_requirements() {
+  echo "Test: test-terminal.txt has output requirements"
+  assert_file_contains "${PROMPTS_DIR}/test-terminal.txt" "Terminal Errors.*Status.*Complete" "Has status update instruction"
+  assert_file_contains "${PROMPTS_DIR}/test-terminal.txt" "Next Agent.*test-browser" "Has next agent instruction"
+}
+
+test_terminal_prompt_has_failure_handling() {
+  echo "Test: test-terminal.txt has failure handling"
+  assert_file_contains "${PROMPTS_DIR}/test-terminal.txt" "5 attempts" "Has 5 attempt limit reference"
+  assert_file_contains "${PROMPTS_DIR}/test-terminal.txt" "Needs-Human" "Has Needs-Human reference"
+}
+
+test_terminal_prompt_has_auto_detect() {
+  echo "Test: test-terminal.txt has auto-detect instructions"
+  assert_file_contains "${PROMPTS_DIR}/test-terminal.txt" "package.json" "Mentions package.json for command detection"
+  assert_file_contains "${PROMPTS_DIR}/test-terminal.txt" "dev.*start.*serve" "Has common dev script names"
+}
+
+test_terminal_prompt_references_implementation() {
+  echo "Test: test-terminal.txt references implementation section"
+  assert_file_contains "${PROMPTS_DIR}/test-terminal.txt" "Implementation" "References Implementation section"
+}
+
+test_terminal_prompt_has_error_types() {
+  echo "Test: test-terminal.txt mentions error types to check"
+  assert_file_contains "${PROMPTS_DIR}/test-terminal.txt" "Compile error" "Mentions compile errors"
+  assert_file_contains "${PROMPTS_DIR}/test-terminal.txt" "runtime" "Mentions runtime errors"
+}
+
+# ============================================
 # SEQUENTIAL PROMPT TESTS
 # ============================================
 
@@ -267,6 +322,17 @@ test_typecheck_prompt_has_output_requirements
 test_typecheck_prompt_has_failure_handling
 test_typecheck_prompt_has_auto_detect
 test_typecheck_prompt_references_implementation
+
+# Test-terminal prompt tests
+test_terminal_prompt_exists
+test_terminal_prompt_not_empty
+test_terminal_prompt_has_task_placeholders
+test_terminal_prompt_has_dev_server_command
+test_terminal_prompt_has_output_requirements
+test_terminal_prompt_has_failure_handling
+test_terminal_prompt_has_auto_detect
+test_terminal_prompt_references_implementation
+test_terminal_prompt_has_error_types
 
 # Sequential prompt tests
 test_sequential_prompt_exists

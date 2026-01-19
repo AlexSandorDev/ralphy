@@ -100,3 +100,23 @@ Added comprehensive functions to `ralphy.sh` for managing task files in the `tas
 - Added 11 new tests to `test_prompts.sh` for test-typecheck.txt
 - Tests verify: file existence, placeholders, tsc command, output requirements, failure handling, auto-detect instructions, implementation reference
 - All 91 tests pass (48 task folder + 43 prompt tests)
+
+## 2026-01-19: Created prompts/test-terminal.txt
+
+### Completed Task: Create prompts/test-terminal.txt (start dev server, check errors)
+
+**prompts/test-terminal.txt Features:**
+- Template placeholders: `{{TASK_FILE}}`, `{{TASK_NAME}}`
+- Instructions to start and monitor the dev server
+- Auto-detection of dev server commands from package.json scripts (dev, start, serve, develop)
+- Instructions to check for compile and runtime errors
+- References Implementation section to understand what was changed
+- Output requirements (update task file Test: Terminal Errors section, set Next Agent to "test-browser")
+- Failure handling (5 attempts, Needs-Human marking)
+- Timeout handling guidance (30 seconds for server startup)
+- Clear rules: fix errors, don't modify logic; if logic changes needed, go back to implement
+
+**Testing:**
+- Added 11 new tests to `test_prompts.sh` for test-terminal.txt
+- Tests verify: file existence, placeholders, dev server instructions, output requirements, failure handling, auto-detect instructions, implementation reference, error types
+- All 106 tests pass (48 task folder + 58 prompt tests)
