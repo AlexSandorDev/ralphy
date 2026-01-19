@@ -72,12 +72,10 @@ export class GitHubTaskSource implements TaskSource {
 			repo: this.repo,
 			state: "open",
 			labels: this.label,
-			per_page: 1,
+			per_page: 100,
 		});
 
-		// Get total count from the API
-		// Note: This is a simplification - for accurate counts, use pagination
-		return issues.data.length > 0 ? 1 : 0;
+		return issues.data.length;
 	}
 
 	async countCompleted(): Promise<number> {
@@ -86,10 +84,10 @@ export class GitHubTaskSource implements TaskSource {
 			repo: this.repo,
 			state: "closed",
 			labels: this.label,
-			per_page: 1,
+			per_page: 100,
 		});
 
-		return issues.data.length > 0 ? 1 : 0;
+		return issues.data.length;
 	}
 
 	/**

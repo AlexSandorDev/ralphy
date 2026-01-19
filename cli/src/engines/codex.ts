@@ -12,7 +12,7 @@ export class CodexEngine extends BaseAIEngine {
 
 	async execute(prompt: string, workDir: string): Promise<AIResult> {
 		// Codex uses a separate file for the last message
-		const lastMessageFile = join(workDir, `.codex-last-message-${Date.now()}.txt`);
+		const lastMessageFile = join(workDir, `.codex-last-message-${Date.now()}-${process.pid}.txt`);
 
 		try {
 			const { stdout, stderr, exitCode } = await execCommand(

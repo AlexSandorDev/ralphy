@@ -18,7 +18,9 @@ function getPlatformBinary() {
 
 	const archMap = {
 		arm64: "arm64",
+		aarch64: "arm64",
 		x64: "x64",
+		amd64: "x64",
 	};
 
 	const platformKey = platformMap[platform];
