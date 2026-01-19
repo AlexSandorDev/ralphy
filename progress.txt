@@ -145,3 +145,33 @@ Added comprehensive functions to `ralphy.sh` for managing task files in the `tas
 - Added 14 new tests to `test_prompts.sh` for test-browser.txt
 - Tests verify: file existence, placeholders, --chrome reference, dev server instructions, output requirements, failure handling, console checking, auto-detect instructions, own server emphasis
 - All 125 tests pass (48 task folder + 77 prompt tests)
+
+## 2026-01-19: Created prompts/test-automated.txt
+
+### Completed Task: Create prompts/test-automated.txt (write Playwright tests, then run)
+
+**prompts/test-automated.txt Features:**
+- Template placeholders: `{{TASK_FILE}}`, `{{TASK_NAME}}`
+- Instructions to analyze feature from Research and Implementation sections
+- Playwright test writing guidelines:
+  - Create test files in project's test directory
+  - Follow existing test patterns in codebase
+  - Cover happy path scenarios
+  - Cover edge cases and error states
+  - Use descriptive test names
+- Test execution instructions:
+  - Run `npx playwright test` or project's configured command
+  - Auto-detect test commands from package.json scripts
+  - Analyze and fix test failures
+- Output requirements:
+  - Update Test: Automated (Playwright) section
+  - Set task Status to "Complete" when all tests pass
+  - Set Next Agent to "none" (final step in workflow)
+- Failure handling (5 attempts, Needs-Human marking)
+- Test writing patterns with example code
+- Common assertions reference
+
+**Testing:**
+- Added 17 new tests to `test_prompts.sh` for test-automated.txt
+- Tests verify: file existence, placeholders, Playwright instructions, write tests instructions, output requirements, failure handling, auto-detect, test patterns, scenarios coverage, final step handling
+- All 148 tests pass (48 task folder + 100 prompt tests)

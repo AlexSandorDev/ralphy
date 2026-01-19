@@ -324,6 +324,81 @@ test_browser_prompt_starts_own_server() {
 }
 
 # ============================================
+# TEST-AUTOMATED PROMPT TESTS
+# ============================================
+
+test_automated_prompt_exists() {
+  echo "Test: test-automated.txt exists"
+  assert_file_exists "${PROMPTS_DIR}/test-automated.txt" "test-automated.txt exists"
+}
+
+test_automated_prompt_not_empty() {
+  echo "Test: test-automated.txt is not empty"
+  assert_file_not_empty "${PROMPTS_DIR}/test-automated.txt" "test-automated.txt has content"
+}
+
+test_automated_prompt_has_task_placeholders() {
+  echo "Test: test-automated.txt has required placeholders"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "{{TASK_FILE}}" "Has TASK_FILE placeholder"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "{{TASK_NAME}}" "Has TASK_NAME placeholder"
+}
+
+test_automated_prompt_has_playwright_instructions() {
+  echo "Test: test-automated.txt has Playwright instructions"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "Playwright" "Mentions Playwright"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "npx playwright test" "Has playwright test command"
+}
+
+test_automated_prompt_has_write_tests_instructions() {
+  echo "Test: test-automated.txt has write tests instructions"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "Write Playwright Tests" "Has write tests section"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "test file" "Mentions test files"
+}
+
+test_automated_prompt_has_output_requirements() {
+  echo "Test: test-automated.txt has output requirements"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "Automated.*Status.*Complete" "Has status update instruction"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "task Status.*Complete" "Has task complete instruction"
+}
+
+test_automated_prompt_has_failure_handling() {
+  echo "Test: test-automated.txt has failure handling"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "5 attempts" "Has 5 attempt limit reference"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "Needs-Human" "Has Needs-Human reference"
+}
+
+test_automated_prompt_references_implementation() {
+  echo "Test: test-automated.txt references implementation section"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "Implementation" "References Implementation section"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "Research" "References Research section"
+}
+
+test_automated_prompt_has_auto_detect() {
+  echo "Test: test-automated.txt has auto-detect instructions"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "package.json" "Mentions package.json for command detection"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "test:e2e" "Has test:e2e script name"
+}
+
+test_automated_prompt_has_test_patterns() {
+  echo "Test: test-automated.txt has test writing patterns"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "test.describe" "Has describe pattern"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "expect" "Has expect assertion"
+}
+
+test_automated_prompt_covers_scenarios() {
+  echo "Test: test-automated.txt covers test scenarios"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "happy path" "Mentions happy path testing"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "edge cases" "Mentions edge case testing"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "error" "Mentions error scenario testing"
+}
+
+test_automated_prompt_final_step() {
+  echo "Test: test-automated.txt marks task as complete"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "Next Agent.*none" "Has next agent none instruction"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "task is done" "Indicates task completion"
+}
+
+# ============================================
 # SEQUENTIAL PROMPT TESTS
 # ============================================
 
@@ -413,6 +488,20 @@ test_browser_prompt_has_console_check
 test_browser_prompt_references_implementation
 test_browser_prompt_has_auto_detect
 test_browser_prompt_starts_own_server
+
+# Test-automated prompt tests
+test_automated_prompt_exists
+test_automated_prompt_not_empty
+test_automated_prompt_has_task_placeholders
+test_automated_prompt_has_playwright_instructions
+test_automated_prompt_has_write_tests_instructions
+test_automated_prompt_has_output_requirements
+test_automated_prompt_has_failure_handling
+test_automated_prompt_references_implementation
+test_automated_prompt_has_auto_detect
+test_automated_prompt_has_test_patterns
+test_automated_prompt_covers_scenarios
+test_automated_prompt_final_step
 
 # Sequential prompt tests
 test_sequential_prompt_exists
