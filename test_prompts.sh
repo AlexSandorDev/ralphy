@@ -108,6 +108,14 @@ test_research_prompt_no_implementation() {
   assert_file_contains "${PROMPTS_DIR}/research.txt" "DO NOT.*implementation" "Prohibits implementation code"
 }
 
+test_research_prompt_has_next_agent_rules() {
+  echo "Test: research.txt has explicit Next Agent rules"
+  assert_file_contains "${PROMPTS_DIR}/research.txt" "Next Agent field rules" "Has Next Agent field rules section"
+  assert_file_contains "${PROMPTS_DIR}/research.txt" "On SUCCESS.*implement" "Has success next agent rule"
+  assert_file_contains "${PROMPTS_DIR}/research.txt" "On FAILURE.*research" "Has failure next agent rule"
+  assert_file_contains "${PROMPTS_DIR}/research.txt" "On BLOCKED.*Needs-Human" "Has blocked scenario rule"
+}
+
 # ============================================
 # IMPLEMENT PROMPT TESTS
 # ============================================
@@ -151,6 +159,14 @@ test_implement_prompt_has_failure_handling() {
   echo "Test: implement.txt has failure handling"
   assert_file_contains "${PROMPTS_DIR}/implement.txt" "5.*attempts" "Has 5 attempt limit reference"
   assert_file_contains "${PROMPTS_DIR}/implement.txt" "Needs-Human" "Has Needs-Human reference"
+}
+
+test_implement_prompt_has_next_agent_rules() {
+  echo "Test: implement.txt has explicit Next Agent rules"
+  assert_file_contains "${PROMPTS_DIR}/implement.txt" "Next Agent field rules" "Has Next Agent field rules section"
+  assert_file_contains "${PROMPTS_DIR}/implement.txt" "On SUCCESS.*test-typecheck" "Has success next agent rule"
+  assert_file_contains "${PROMPTS_DIR}/implement.txt" "On FAILURE.*research" "Has failure next agent rule"
+  assert_file_contains "${PROMPTS_DIR}/implement.txt" "On BLOCKED.*Needs-Human" "Has blocked scenario rule"
 }
 
 # ============================================
@@ -199,6 +215,14 @@ test_typecheck_prompt_has_auto_detect() {
 test_typecheck_prompt_references_implementation() {
   echo "Test: test-typecheck.txt references implementation section"
   assert_file_contains "${PROMPTS_DIR}/test-typecheck.txt" "Implementation" "References Implementation section"
+}
+
+test_typecheck_prompt_has_next_agent_rules() {
+  echo "Test: test-typecheck.txt has explicit Next Agent rules"
+  assert_file_contains "${PROMPTS_DIR}/test-typecheck.txt" "Next Agent field rules" "Has Next Agent field rules section"
+  assert_file_contains "${PROMPTS_DIR}/test-typecheck.txt" "On SUCCESS.*test-terminal" "Has success next agent rule"
+  assert_file_contains "${PROMPTS_DIR}/test-typecheck.txt" "On FAILURE.*implement" "Has failure next agent rule"
+  assert_file_contains "${PROMPTS_DIR}/test-typecheck.txt" "On BLOCKED.*Needs-Human" "Has blocked scenario rule"
 }
 
 # ============================================
@@ -254,6 +278,14 @@ test_terminal_prompt_has_error_types() {
   echo "Test: test-terminal.txt mentions error types to check"
   assert_file_contains "${PROMPTS_DIR}/test-terminal.txt" "Compile error" "Mentions compile errors"
   assert_file_contains "${PROMPTS_DIR}/test-terminal.txt" "runtime" "Mentions runtime errors"
+}
+
+test_terminal_prompt_has_next_agent_rules() {
+  echo "Test: test-terminal.txt has explicit Next Agent rules"
+  assert_file_contains "${PROMPTS_DIR}/test-terminal.txt" "Next Agent field rules" "Has Next Agent field rules section"
+  assert_file_contains "${PROMPTS_DIR}/test-terminal.txt" "On SUCCESS.*test-browser" "Has success next agent rule"
+  assert_file_contains "${PROMPTS_DIR}/test-terminal.txt" "On FAILURE.*implement" "Has failure next agent rule"
+  assert_file_contains "${PROMPTS_DIR}/test-terminal.txt" "On BLOCKED.*Needs-Human" "Has blocked scenario rule"
 }
 
 # ============================================
@@ -321,6 +353,14 @@ test_browser_prompt_starts_own_server() {
   echo "Test: test-browser.txt emphasizes starting own server"
   assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "Start Your Own Dev Server" "Has own server instructions"
   assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "You own this server" "Emphasizes owning server instance"
+}
+
+test_browser_prompt_has_next_agent_rules() {
+  echo "Test: test-browser.txt has explicit Next Agent rules"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "Next Agent field rules" "Has Next Agent field rules section"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "On SUCCESS.*test-automated" "Has success next agent rule"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "On FAILURE.*implement" "Has failure next agent rule"
+  assert_file_contains "${PROMPTS_DIR}/test-browser.txt" "On BLOCKED.*Needs-Human" "Has blocked scenario rule"
 }
 
 # ============================================
@@ -395,7 +435,15 @@ test_automated_prompt_covers_scenarios() {
 test_automated_prompt_final_step() {
   echo "Test: test-automated.txt marks task as complete"
   assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "Next Agent.*none" "Has next agent none instruction"
-  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "task is done" "Indicates task completion"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "Status.*Complete" "Indicates task completion"
+}
+
+test_automated_prompt_has_next_agent_rules() {
+  echo "Test: test-automated.txt has explicit Next Agent rules"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "Next Agent field rules" "Has Next Agent field rules section"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "On SUCCESS.*none.*Status.*Complete" "Has success next agent rule"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "On FAILURE.*implement" "Has failure next agent rule"
+  assert_file_contains "${PROMPTS_DIR}/test-automated.txt" "On BLOCKED.*Needs-Human" "Has blocked scenario rule"
 }
 
 # ============================================
@@ -445,6 +493,7 @@ test_research_prompt_has_context7_instructions
 test_research_prompt_has_codebase_exploration
 test_research_prompt_has_output_requirements
 test_research_prompt_no_implementation
+test_research_prompt_has_next_agent_rules
 
 # Implement prompt tests
 test_implement_prompt_exists
@@ -454,6 +503,7 @@ test_implement_prompt_has_reasoning_requirements
 test_implement_prompt_has_output_requirements
 test_implement_prompt_reads_research
 test_implement_prompt_has_failure_handling
+test_implement_prompt_has_next_agent_rules
 
 # Test-typecheck prompt tests
 test_typecheck_prompt_exists
@@ -464,6 +514,7 @@ test_typecheck_prompt_has_output_requirements
 test_typecheck_prompt_has_failure_handling
 test_typecheck_prompt_has_auto_detect
 test_typecheck_prompt_references_implementation
+test_typecheck_prompt_has_next_agent_rules
 
 # Test-terminal prompt tests
 test_terminal_prompt_exists
@@ -475,6 +526,7 @@ test_terminal_prompt_has_failure_handling
 test_terminal_prompt_has_auto_detect
 test_terminal_prompt_references_implementation
 test_terminal_prompt_has_error_types
+test_terminal_prompt_has_next_agent_rules
 
 # Test-browser prompt tests
 test_browser_prompt_exists
@@ -488,6 +540,7 @@ test_browser_prompt_has_console_check
 test_browser_prompt_references_implementation
 test_browser_prompt_has_auto_detect
 test_browser_prompt_starts_own_server
+test_browser_prompt_has_next_agent_rules
 
 # Test-automated prompt tests
 test_automated_prompt_exists
@@ -502,6 +555,7 @@ test_automated_prompt_has_auto_detect
 test_automated_prompt_has_test_patterns
 test_automated_prompt_covers_scenarios
 test_automated_prompt_final_step
+test_automated_prompt_has_next_agent_rules
 
 # Sequential prompt tests
 test_sequential_prompt_exists

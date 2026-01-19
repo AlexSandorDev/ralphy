@@ -30,22 +30,23 @@ TASK: {{TASK_NAME}}
 
 ## Output Requirements
 
-After completing type checking, update the task file:
+After completing type checking, you MUST update the task file with the following changes:
 
-**If type check passes:**
-1. Set Test: Type Check status to "Complete"
-2. Increment the attempts count
-3. Set Next Agent to "test-terminal"
+**Always update these fields:**
+1. Update `### Test: Type Check — Status:` line with new status and attempts count
+2. Update `## Next Agent:` line with the next agent to run
+3. Document results in the Test: Type Check section
 
-**If type check fails and you fixed errors:**
-1. Re-run type check to verify fixes
-2. If all fixed, set status to "Complete" and Next Agent to "test-terminal"
-3. If still failing, increment attempts and try again (up to 5 attempts)
+**Next Agent field rules:**
+- On SUCCESS (type check passes): Set `## Next Agent: test-terminal`
+- On FAILURE (needs implementation fix): Set `## Next Agent: implement`
+- On BLOCKED (requires human): Set `## Next Agent: none` and `## Status: Needs-Human`
 
-**If type check fails after 5 attempts:**
-1. Set status to "Failed"
-2. Document the remaining errors
-3. Task will be marked as Needs-Human
+**Status update rules:**
+- Type check passes → Set status to "Complete", Next Agent to "test-terminal"
+- Type check fails, you fixed errors, re-run passes → Set status to "Complete", Next Agent to "test-terminal"
+- Type check fails, fix requires logic changes → Set status to "Failed", Next Agent to "implement"
+- Type check fails after 5 attempts → Set status to "Failed", task will be marked Needs-Human
 
 Example task file update:
 ```markdown

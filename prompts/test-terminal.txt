@@ -38,28 +38,23 @@ TASK: {{TASK_NAME}}
 
 ## Output Requirements
 
-After checking the dev server, update the task file:
+After checking the dev server, you MUST update the task file with the following changes:
 
-**If dev server starts without errors:**
-1. Set Test: Terminal Errors status to "Complete"
-2. Increment the attempts count
-3. Set Next Agent to "test-browser"
+**Always update these fields:**
+1. Update `### Test: Terminal Errors — Status:` line with new status and attempts count
+2. Update `## Next Agent:` line with the next agent to run
+3. Document results in the Test: Terminal Errors section
 
-**If errors found and fixed:**
-1. Stop the dev server if running
-2. Apply the fixes
-3. Restart the dev server to verify
-4. If all fixed, set status to "Complete" and Next Agent to "test-browser"
-5. If still failing, increment attempts and try again (up to 5 attempts)
+**Next Agent field rules:**
+- On SUCCESS (server starts without errors): Set `## Next Agent: test-browser`
+- On FAILURE (needs implementation fix): Set `## Next Agent: implement`
+- On BLOCKED (requires human): Set `## Next Agent: none` and `## Status: Needs-Human`
 
-**If errors require implementation changes:**
-1. Document the errors clearly
-2. Set Next Agent to "implement" with notes on what needs to change
-
-**If errors persist after 5 attempts:**
-1. Set status to "Failed"
-2. Document the remaining errors
-3. Task will be marked as Needs-Human
+**Status update rules:**
+- Dev server starts without errors → Set status to "Complete", Next Agent to "test-browser"
+- Errors found and fixed, server now starts → Set status to "Complete", Next Agent to "test-browser"
+- Errors require implementation changes → Set status to "Failed", Next Agent to "implement"
+- Errors persist after 5 attempts → Set status to "Failed", task will be marked Needs-Human
 
 Example task file update:
 ```markdown

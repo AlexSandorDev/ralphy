@@ -32,11 +32,17 @@ TASK: {{TASK_NAME}}
 
 ## Output Requirements
 
-After completing implementation, update the task file:
-1. Set Implementation status to "Complete" (or "In Progress" if more work needed)
-2. Increment the attempts count
-3. Set Next Agent to "test-typecheck"
-4. Fill in the Implementation section with your reasoning
+After completing implementation, you MUST update the task file with the following changes:
+
+**Always update these fields:**
+1. Update `### Implementation — Status:` line with new status and attempts count
+2. Update `## Next Agent:` line with the next agent to run
+3. Fill in the Implementation section with your reasoning
+
+**Next Agent field rules:**
+- On SUCCESS: Set `## Next Agent: test-typecheck`
+- On FAILURE (needs more research): Set `## Next Agent: research`
+- On BLOCKED (requires human): Set `## Next Agent: none` and `## Status: Needs-Human`
 
 Example task file update:
 ```markdown

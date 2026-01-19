@@ -34,10 +34,17 @@ TASK: {{TASK_NAME}}
 
 ## Output Requirements
 
-After completing research, update the task file:
-1. Set Research status to "Complete" with attempts count
-2. Set Next Agent to "implement"
+After completing research, you MUST update the task file with the following changes:
+
+**Always update these fields:**
+1. Update `### Research — Status:` line with new status and attempts count
+2. Update `## Next Agent:` line with the next agent to run
 3. Fill in the Research section with your findings
+
+**Next Agent field rules:**
+- On SUCCESS: Set `## Next Agent: implement`
+- On FAILURE (needs more info): Set `## Next Agent: research` (to retry)
+- On BLOCKED (requires human): Set `## Next Agent: none` and `## Status: Needs-Human`
 
 Example task file update:
 ```markdown

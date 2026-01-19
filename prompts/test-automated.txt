@@ -35,28 +35,24 @@ TASK: {{TASK_NAME}}
 
 ## Output Requirements
 
-After running tests, update the task file:
+After running tests, you MUST update the task file with the following changes:
 
-**If all tests pass:**
-1. Set Test: Automated (Playwright) status to "Complete"
-2. Increment the attempts count
-3. Set task Status to "Complete"
-4. Set Next Agent to "none" (task is done)
+**Always update these fields:**
+1. Update `### Test: Automated (Playwright) — Status:` line with new status and attempts count
+2. Update `## Next Agent:` line with the next agent to run
+3. Update `## Status:` line when task is complete
+4. Document results in the Test: Automated (Playwright) section
 
-**If tests fail due to test code issues:**
-1. Fix the test code
-2. Re-run tests to verify
-3. If fixed, proceed as above
-4. If still failing, increment attempts and try again
+**Next Agent field rules:**
+- On SUCCESS (all tests pass): Set `## Next Agent: none` AND `## Status: Complete`
+- On FAILURE (needs implementation fix): Set `## Next Agent: implement`
+- On BLOCKED (requires human): Set `## Next Agent: none` and `## Status: Needs-Human`
 
-**If tests fail due to implementation bugs:**
-1. Document the failures clearly
-2. Set Next Agent to "implement" with notes on what needs to change
-
-**If tests fail after 5 attempts:**
-1. Set status to "Failed"
-2. Document the remaining issues
-3. Task will be marked as Needs-Human
+**Status update rules:**
+- All tests pass → Set subtask status to "Complete", task Status to "Complete", Next Agent to "none"
+- Tests fail due to test code, fixed and re-run passes → Same as above
+- Tests fail due to implementation bugs → Set subtask status to "Failed", Next Agent to "implement"
+- Tests fail after 5 attempts → Set subtask status to "Failed", task will be marked Needs-Human
 
 Example task file update:
 ```markdown

@@ -219,3 +219,52 @@ Added comprehensive agent runner functions to `ralphy.sh` for running specialize
 - Created comprehensive test suite in `test_agent_runners.sh`
 - 53 tests covering all agent runner functions
 - All 201 tests pass (48 task folder + 100 prompt + 53 agent runner)
+
+## 2026-01-19: Each agent outputs Next Agent field for loop to follow
+
+### Completed Task: Each agent outputs Next Agent field for loop to follow
+
+Enhanced all 6 agent prompts with explicit "Next Agent field rules" to ensure agents consistently output the correct Next Agent value for the main loop to follow.
+
+**Changes to prompts/research.txt:**
+- Added "Next Agent field rules" section with explicit rules:
+  - On SUCCESS: Set `## Next Agent: implement`
+  - On FAILURE: Set `## Next Agent: research` (to retry)
+  - On BLOCKED: Set `## Next Agent: none` and `## Status: Needs-Human`
+- Added "Always update these fields" checklist
+
+**Changes to prompts/implement.txt:**
+- Added "Next Agent field rules" section:
+  - On SUCCESS: Set `## Next Agent: test-typecheck`
+  - On FAILURE: Set `## Next Agent: research`
+  - On BLOCKED: Set `## Next Agent: none` and `## Status: Needs-Human`
+
+**Changes to prompts/test-typecheck.txt:**
+- Added "Next Agent field rules" section:
+  - On SUCCESS: Set `## Next Agent: test-terminal`
+  - On FAILURE: Set `## Next Agent: implement`
+  - On BLOCKED: Set `## Next Agent: none` and `## Status: Needs-Human`
+- Added "Status update rules" for clarity
+
+**Changes to prompts/test-terminal.txt:**
+- Added "Next Agent field rules" section:
+  - On SUCCESS: Set `## Next Agent: test-browser`
+  - On FAILURE: Set `## Next Agent: implement`
+  - On BLOCKED: Set `## Next Agent: none` and `## Status: Needs-Human`
+
+**Changes to prompts/test-browser.txt:**
+- Added "Next Agent field rules" section:
+  - On SUCCESS: Set `## Next Agent: test-automated`
+  - On FAILURE: Set `## Next Agent: implement`
+  - On BLOCKED: Set `## Next Agent: none` and `## Status: Needs-Human`
+
+**Changes to prompts/test-automated.txt:**
+- Added "Next Agent field rules" section:
+  - On SUCCESS: Set `## Next Agent: none` AND `## Status: Complete`
+  - On FAILURE: Set `## Next Agent: implement`
+  - On BLOCKED: Set `## Next Agent: none` and `## Status: Needs-Human`
+
+**Testing:**
+- Added 24 new tests to `test_prompts.sh` (4 tests per prompt × 6 prompts)
+- Tests verify: "Next Agent field rules" section exists, success/failure/blocked rules present
+- All 124 prompt tests pass

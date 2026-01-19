@@ -74,7 +74,7 @@ Replace shared `progress.txt` with individual task files in `tasks/` folder. Eac
 - [x] Create prompts/test-browser.txt (start server, test functionality via --chrome)
 - [x] Create prompts/test-automated.txt (write Playwright tests, then run)
 - [x] Implement 6 agent runner functions that read/update task files
-- [ ] Each agent outputs Next Agent field for loop to follow
+- [x] Each agent outputs Next Agent field for loop to follow
 - [ ] Implement 5-attempt failure handling with [Needs-Human] marking
 - [ ] Implement purple terminal warning for Needs-Human
 - [ ] Implement dependency checking with [Waiting on Task X]

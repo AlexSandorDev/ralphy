@@ -37,28 +37,24 @@ TASK: {{TASK_NAME}}
 
 ## Output Requirements
 
-After browser testing, update the task file:
+After browser testing, you MUST update the task file with the following changes:
 
-**If all browser tests pass:**
-1. Set Test: Browser status to "Complete"
-2. Increment the attempts count
-3. Set Next Agent to "test-automated"
+**Always update these fields:**
+1. Update `### Test: Browser — Status:` line with new status and attempts count
+2. Update `## Next Agent:` line with the next agent to run
+3. Document results in the Test: Browser section
 
-**If tests fail and you can identify the fix:**
-1. Stop the dev server
-2. Document the issue clearly
-3. Set Next Agent to "implement" with notes on what needs to change
+**Next Agent field rules:**
+- On SUCCESS (all browser tests pass): Set `## Next Agent: test-automated`
+- On FAILURE (needs implementation fix): Set `## Next Agent: implement`
+- On BLOCKED (requires human): Set `## Next Agent: none` and `## Status: Needs-Human`
 
-**If console errors found:**
-1. Document the errors
-2. Determine if they are related to the implementation
-3. If related, set Next Agent to "implement"
-4. If unrelated (pre-existing), note them but continue testing
-
-**If tests fail after 5 attempts:**
-1. Set status to "Failed"
-2. Document what's not working
-3. Task will be marked as Needs-Human
+**Status update rules:**
+- All browser tests pass → Set status to "Complete", Next Agent to "test-automated"
+- Tests fail, issue identified → Set status to "Failed", Next Agent to "implement"
+- Console errors found related to implementation → Set status to "Failed", Next Agent to "implement"
+- Console errors unrelated (pre-existing) → Note them, continue testing
+- Tests fail after 5 attempts → Set status to "Failed", task will be marked Needs-Human
 
 Example task file update:
 ```markdown
